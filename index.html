@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Game Jerman A1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Great+Vibes&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            min-height: 100vh;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .shake {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        /* Certificate Styling */
+        .certificate-container {
+            font-family: 'Cinzel', serif;
+            background-color: #fff;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23e0cf9c' fill-opacity='0.1' fill-rule='evenodd'/%3E");
+            border: 15px solid transparent;
+            border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cpath d='M0 0h30v30H0z' fill='%23d4af37'/%3E%3Cpath d='M5 5h20v20H5z' fill='%23fff'/%3E%3C/svg%3E") 10 stretch;
+        }
+        
+        .name-cursive {
+            font-family: 'Great Vibes', cursive;
+            color: #b7791f; /* Tailwind yellow-600 */
+        }
+
+        .seal {
+            background: radial-gradient(circle, #eab308 0%, #a16207 100%);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Hide elements during print */
+        @media print {
+            body { background: white; }
+            #btn-print, #btn-restart { display: none !important; }
+            .certificate-wrapper { box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <!-- Main Container -->
+    <div id="app-container" class="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden transition-all duration-500">
+        
+        <!-- Header (German Flag) -->
+        <div class="h-4 flex">
+            <div class="flex-1 bg-black"></div>
+            <div class="flex-1 bg-red-600"></div>
+            <div class="flex-1 bg-yellow-400"></div>
+        </div>
+
+        <div class="p-8 md:p-12">
+            
+            <!-- SCREEN 1: START SCREEN -->
+            <div id="start-screen" class="text-center fade-in">
+                <i class="fas fa-graduation-cap text-6xl text-blue-600 mb-4"></i>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Deutsch A1 Challenge</h1>
+                <p class="text-gray-500 mb-8">Test your German skills (Weather, Clothes, Welch-/Dies-, and Perfekt). Get a certificate at the end!</p>
+                
+                <div class="max-w-sm mx-auto">
+                    <label for="playerNameInput" class="block text-left text-sm font-medium text-gray-700 mb-1">Player Name:</label>
+                    <input type="text" id="playerNameInput" placeholder="Enter your name..." class="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all mb-6 text-lg">
+                    
+                    <button onclick="startGame()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                        <i class="fas fa-play"></i> Start Game
+                    </button>
+                    <p id="name-error" class="text-red-500 text-sm mt-2 hidden">Please enter your name first!</p>
+                </div>
+            </div>
+
+            <!-- SCREEN 2: GAME SCREEN -->
+            <div id="game-screen" class="hidden fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-500" id="category-badge">Category</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm font-semibold text-gray-500">Question <span id="current-q-num">1</span>/40</span>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-8">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+
+                <div class="bg-blue-50 rounded-xl p-6 mb-8 border border-blue-100">
+                    <h2 id="question-text" class="text-xl md:text-2xl font-bold text-gray-800 text-center">Question will appear here</h2>
+                </div>
+
+                <div id="options-container" class="grid grid-cols-1 gap-4">
+                    <!-- Options generated by JS -->
+                </div>
+            </div>
+
+            <!-- SCREEN 2.5: MATCHING SCREEN -->
+            <div id="matching-screen" class="hidden fade-in">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Stage 2: Vocabulary Match</h2>
+                    <p class="text-gray-500">Match the German words on the left with their English meanings on the right.</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 md:gap-8" id="matching-container">
+                    <!-- Left Column (German) -->
+                    <div id="matching-col-de" class="flex flex-col gap-3"></div>
+                    <!-- Right Column (English) -->
+                    <div id="matching-col-en" class="flex flex-col gap-3"></div>
+                </div>
+
+                <div id="matching-next-btn" class="hidden mt-8 text-center">
+                    <button onclick="showCertificate()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors inline-flex items-center gap-2 text-lg shadow-lg">
+                        Get Certificate <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SCREEN 3: CERTIFICATE SCREEN -->
+            <div id="certificate-screen" class="hidden fade-in">
+                <div class="certificate-wrapper bg-white p-2 shadow-lg max-w-2xl mx-auto rounded">
+                    <div class="certificate-container p-8 md:p-12 text-center relative border-8 border-double border-yellow-600">
+                        <!-- Decorative Corners -->
+                        <i class="fas fa-certificate absolute top-4 left-4 text-yellow-500 text-2xl opacity-50"></i>
+                        <i class="fas fa-certificate absolute top-4 right-4 text-yellow-500 text-2xl opacity-50"></i>
+                        <i class="fas fa-certificate absolute bottom-4 left-4 text-yellow-500 text-2xl opacity-50"></i>
+                        <i class="fas fa-certificate absolute bottom-4 right-4 text-yellow-500 text-2xl opacity-50"></i>
+
+                        <div class="mb-4 text-yellow-600 flex justify-center space-x-2">
+                            <div class="w-8 h-1 bg-black mt-2"></div>
+                            <div class="w-8 h-1 bg-red-600 mt-2"></div>
+                            <div class="w-8 h-1 bg-yellow-400 mt-2"></div>
+                        </div>
+
+                        <h1 class="text-3xl md:text-5xl font-bold text-gray-800 tracking-widest mb-2 uppercase">Zertifikat</h1>
+                        <h2 class="text-lg md:text-xl text-gray-600 mb-8 uppercase tracking-widest">Deutsch A1 - Grundlagen</h2>
+
+                        <p class="text-gray-500 mb-2 italic">Proudly presented to:</p>
+                        <h3 id="cert-name" class="name-cursive text-4xl md:text-6xl mb-6">Player Name</h3>
+
+                        <p class="text-gray-600 mb-6 text-sm md:text-base px-4">
+                            Has successfully completed the A1 German grammar and vocabulary quiz focusing on: <b>Wetter, Kleidung, Welch-/Dies-, Das Perfekt, and Berufe</b>.
+                        </p>
+
+                        <div class="inline-block bg-gray-50 border border-gray-200 px-6 py-3 rounded-lg mb-8">
+                            <p class="text-gray-500 text-sm uppercase">Final Score</p>
+                            <p class="text-3xl font-bold text-gray-800"><span id="cert-score">0</span> / 46</p>
+                            <p id="cert-grade" class="text-sm font-semibold text-green-600 mt-1">Sehr Gut! (Very Good)</p>
+                        </div>
+
+                        <div class="flex justify-between items-end mt-4 px-8">
+                            <div class="text-center border-t border-gray-400 w-32 pt-2">
+                                <p class="text-xs text-gray-500">Date</p>
+                                <p class="text-sm font-bold text-gray-700" id="cert-date">DD/MM/YYYY</p>
+                            </div>
+                            
+                            <div class="seal w-16 h-16 rounded-full flex items-center justify-center text-white relative">
+                                <div class="absolute inset-1 border-2 border-dashed border-white rounded-full opacity-50"></div>
+                                <i class="fas fa-star"></i>
+                            </div>
+
+                            <div class="text-center border-t border-gray-400 w-32 pt-2">
+                                <p class="text-xs text-gray-500">Instructor</p>
+                                <p class="text-sm font-bold text-gray-700 font-serif italic">Herr Rahli</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex flex-col sm:flex-row justify-center gap-4">
+                    <button id="btn-print" onclick="window.print()" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> Print / Save PDF
+                    </button>
+                    <button id="btn-restart" onclick="restartGame()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-redo"></i> Play Again
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Custom Modal Message -->
+    <div id="custom-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex-items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4 mt-40 mx-auto text-center transform scale-95 transition-transform duration-300" id="modal-content">
+            <div id="modal-icon" class="text-5xl mb-4"></div>
+            <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
+            <p id="modal-message" class="text-gray-600 mb-6"></p>
+            <button onclick="closeModalAndNext()" class="bg-blue-600 hover:bg-blue-700 w-full text-white font-bold py-2 px-4 rounded-lg">Next</button>
+        </div>
+    </div>
+
+    <script>
+        // Question Database (25 Questions)
+        const questions = [
+            // Category 1: Wetter (Weather) - 6 Qs
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-cloud-sun",
+                color: "text-blue-500",
+                text: "How do you say 'The weather is very cold and it is snowing' in German?",
+                options: [
+                    "Es ist warm und regnet.",
+                    "Es ist kalt und es schneit.",
+                    "Die Sonne scheint und es ist heiß."
+                ],
+                correct: 1,
+                explanation: "Kalt = cold, schneit (schneien) = to snow."
+            },
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-sun",
+                color: "text-yellow-500",
+                text: "Translate to English: 'Die Sonne scheint.'",
+                options: [
+                    "The sun is shining.",
+                    "It is cloudy today.",
+                    "It is raining heavily."
+                ],
+                correct: 0,
+                explanation: "Die Sonne = the sun, scheint (scheinen) = is shining."
+            },
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-wind",
+                color: "text-gray-500",
+                text: "How do you say 'It is very windy today'?",
+                options: [
+                    "Es ist sehr dunkel heute.",
+                    "Es ist sehr windig heute.",
+                    "Es ist sehr heiß heute."
+                ],
+                correct: 1,
+                explanation: "Windig = windy."
+            },
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-cloud",
+                color: "text-gray-400",
+                text: "What is the German word for 'cloudy'?",
+                options: [
+                    "sonnig",
+                    "heiß",
+                    "bewölkt"
+                ],
+                correct: 2,
+                explanation: "Bewölkt means cloudy. Sonnig = sunny, heiß = hot."
+            },
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-cloud-showers-heavy",
+                color: "text-blue-600",
+                text: "Translate: 'Es regnet stark.'",
+                options: [
+                    "It is snowing heavily.",
+                    "It is raining heavily.",
+                    "The wind is blowing."
+                ],
+                correct: 1,
+                explanation: "Es regnet = it is raining. Stark = heavily/strong."
+            },
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-temperature-high",
+                color: "text-red-500",
+                text: "Which phrase means 'It is warm' in German?",
+                options: [
+                    "Es ist warm.",
+                    "Es ist neblig.",
+                    "Es ist kühl."
+                ],
+                correct: 0,
+                explanation: "Warm = warm. Neblig = foggy, kühl = cool."
+            },
+
+            // Category 2: Kleidung (Clothes) - 6 Qs
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-tshirt",
+                color: "text-indigo-500",
+                text: "The man is wearing a shirt. The German word for 'shirt' is...",
+                options: [
+                    "die Hose",
+                    "das Hemd",
+                    "die Schuhe"
+                ],
+                correct: 1,
+                explanation: "Das Hemd = the shirt."
+            },
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-socks",
+                color: "text-indigo-500",
+                text: "I need a new jacket. -> Ich brauche eine neue ________.",
+                options: [
+                    "Jacke",
+                    "Mütze",
+                    "Socke"
+                ],
+                correct: 0,
+                explanation: "Die Jacke = the jacket."
+            },
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-shoe-prints",
+                color: "text-indigo-500",
+                text: "'Die Schuhe sind zu groß.' What does 'Schuhe' mean?",
+                options: [
+                    "Socks",
+                    "Shoes",
+                    "Hats"
+                ],
+                correct: 1,
+                explanation: "Die Schuhe (plural) = shoes."
+            },
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-user-tie",
+                color: "text-indigo-500",
+                text: "What is the German word for 'trousers/pants'?",
+                options: [
+                    "das Kleid",
+                    "der Rock",
+                    "die Hose"
+                ],
+                correct: 2,
+                explanation: "Die Hose = trousers/pants."
+            },
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-female",
+                color: "text-indigo-500",
+                text: "Translate: 'Sie trägt ein rotes Kleid.'",
+                options: [
+                    "She is wearing a red skirt.",
+                    "She is wearing a red dress.",
+                    "She is wearing red shoes."
+                ],
+                correct: 1,
+                explanation: "Das Kleid = the dress. Der Rock = the skirt."
+            },
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-hat-cowboy",
+                color: "text-indigo-500",
+                text: "Which word means 'skirt' in German?",
+                options: [
+                    "der Rock",
+                    "der Schal",
+                    "der Hut"
+                ],
+                correct: 0,
+                explanation: "Der Rock = the skirt. Der Schal = scarf, der Hut = hat."
+            },
+
+            // Category 3: Welch- / Dies- - 6 Qs
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: '________ Mantel kaufst du? - ________ hier.' (Mantel = der -> Accusative)",
+                options: [
+                    "Welcher / Dieser",
+                    "Welchen / Diesen",
+                    "Welches / Dieses"
+                ],
+                correct: 1,
+                explanation: "Because 'der Mantel' is the direct object (Accusative), the article changes to 'den'. Thus: welchen / diesen."
+            },
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: '________ Kleid gefällt dir? - ________ da.' (Kleid = das -> Nominative)",
+                options: [
+                    "Welche / Diese",
+                    "Welchen / Diesen",
+                    "Welches / Dieses"
+                ],
+                correct: 2,
+                explanation: "For neuter nouns (das Kleid) in Nominative, use the '-es' ending."
+            },
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: '________ Schuhe sind das? - ________ hier.' (Schuhe = Plural)",
+                options: [
+                    "Welche / Diese",
+                    "Welchen / Diesen",
+                    "Welches / Dieses"
+                ],
+                correct: 0,
+                explanation: "For Plural nouns, always use the '-e' ending in Nominative and Accusative."
+            },
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: '________ Pullover ist das?' (Pullover = der -> Nominative)",
+                options: [
+                    "Welche",
+                    "Welcher",
+                    "Welchen"
+                ],
+                correct: 1,
+                explanation: "Since it is the subject (Nominative) and masculine (der Pullover), we use 'Welcher'."
+            },
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: 'Ich nehme ________ Tasche.' (Tasche = die -> Accusative)",
+                options: [
+                    "dieser",
+                    "diese",
+                    "dieses"
+                ],
+                correct: 1,
+                explanation: "Feminine nouns (die Tasche) use the '-e' ending in both Nominative and Accusative."
+            },
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: '________ Bluse kaufst du?' (Bluse = die -> Accusative)",
+                options: [
+                    "Welches",
+                    "Welchen",
+                    "Welche"
+                ],
+                correct: 2,
+                explanation: "'Bluse' is feminine (die), so it takes the '-e' ending: Welche."
+            },
+
+            // Category 4: Das Perfekt (Past Tense) - 7 Qs
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Complete: 'Ich ________ gestern Fußball ________.'",
+                options: [
+                    "bin / gespielt",
+                    "habe / gespielt",
+                    "habe / spielen"
+                ],
+                correct: 1,
+                explanation: "The verb 'spielen' uses the auxiliary 'haben'. The Partizip II is 'gespielt'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Complete: 'Wir ________ nach Berlin ________.'",
+                options: [
+                    "haben / gefahren",
+                    "sind / gefahren",
+                    "sind / gefahrt"
+                ],
+                correct: 1,
+                explanation: "Verbs of movement like 'fahren' use 'sein' (wir sind). Partizip II is 'gefahren'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Complete: 'Maria ________ ein Buch ________.'",
+                options: [
+                    "hat / gelesen",
+                    "ist / gelesen",
+                    "hat / gelest"
+                ],
+                correct: 0,
+                explanation: "The verb 'lesen' uses 'haben'. It's an irregular verb, so the Partizip II is 'gelesen'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "What is the past participle (Partizip II) of 'machen'?",
+                options: [
+                    "gemachen",
+                    "gemacht",
+                    "macht"
+                ],
+                correct: 1,
+                explanation: "Regular verbs usually add 'ge-' and '-t'. So 'machen' becomes 'gemacht'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Complete: 'Er ________ gestern Abend Pizza ________.'",
+                options: [
+                    "ist / gegessen",
+                    "hat / geessen",
+                    "hat / gegessen"
+                ],
+                correct: 2,
+                explanation: "'essen' is irregular -> 'gegessen', and it takes the auxiliary 'haben'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Which auxiliary verb is used with 'gehen' (to go) in Perfekt?",
+                options: [
+                    "haben",
+                    "sein",
+                    "werden"
+                ],
+                correct: 1,
+                explanation: "'gehen' expresses a change of location, so it uses 'sein' (e.g., ich bin gegangen)."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Complete: 'Ich ________ das nicht ________.' (verstehen)",
+                options: [
+                    "habe / verstanden",
+                    "bin / verstanden",
+                    "habe / geverstanden"
+                ],
+                correct: 0,
+                explanation: "Verbs starting with 'ver-', 'be-', 'er-' don't take a 'ge-' prefix. 'verstehen' -> 'verstanden'."
+            },
+            // Category 5: NEW QUESTIONS (Questions 26-30)
+            {
+                category: "Das Wetter (Weather)",
+                icon: "fa-smog",
+                color: "text-gray-400",
+                text: "Translate: 'Es ist neblig.'",
+                options: [
+                    "It is snowy.",
+                    "It is foggy.",
+                    "It is cloudy."
+                ],
+                correct: 1,
+                explanation: "Neblig = foggy."
+            },
+            {
+                category: "Die Kleidung (Clothes)",
+                icon: "fa-mitten",
+                color: "text-indigo-500",
+                text: "What is the German word for 'scarf'?",
+                options: [
+                    "der Schal",
+                    "der Gürtel",
+                    "die Krawatte"
+                ],
+                correct: 0,
+                explanation: "Der Schal = scarf. Gürtel = belt, Krawatte = tie."
+            },
+            {
+                category: "Welch- / Dies-",
+                icon: "fa-question-circle",
+                color: "text-purple-500",
+                text: "Complete: 'Mit ________ Stift schreibst du?' (Stift = der -> Dative)",
+                options: [
+                    "welchem",
+                    "welchen",
+                    "welcher"
+                ],
+                correct: 0,
+                explanation: "After the preposition 'mit', we use the Dative case. Masculine Dative takes '-em'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "What is the past participle of 'schreiben' (to write)?",
+                options: [
+                    "geschriebt",
+                    "geschrieben",
+                    "geschreiben"
+                ],
+                correct: 1,
+                explanation: "'schreiben' is irregular, its Partizip II is 'geschrieben'."
+            },
+            {
+                category: "Das Perfekt",
+                icon: "fa-history",
+                color: "text-red-500",
+                text: "Complete: 'Wir ________ zu Hause ________.' (bleiben)",
+                options: [
+                    "haben / geblieben",
+                    "sind / geblieben",
+                    "sind / gebleibt"
+                ],
+                correct: 1,
+                explanation: "'bleiben' (to stay) is an exception and uses 'sein' as auxiliary verb. Partizip II is 'geblieben'."
+            },
+            // Category 6: Die Berufe (Professions) - 10 New Qs
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-user-md",
+                color: "text-teal-500",
+                text: "How do you say 'I am a doctor' (male) in German?",
+                options: [
+                    "Ich bin Arzt.",
+                    "Ich bin Lehrer.",
+                    "Ich bin Kellner."
+                ],
+                correct: 0,
+                explanation: "Der Arzt = male doctor. Lehrer = teacher, Kellner = waiter."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-user-nurse",
+                color: "text-teal-500",
+                text: "Translate to English: 'Die Ärztin'",
+                options: [
+                    "The female teacher",
+                    "The female doctor",
+                    "The female police officer"
+                ],
+                correct: 1,
+                explanation: "Adding '-in' to a profession usually makes it female. Arzt -> Ärztin."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-chalkboard-teacher",
+                color: "text-teal-500",
+                text: "What is the German word for 'Teacher' (male)?",
+                options: [
+                    "der Schüler",
+                    "der Lehrer",
+                    "der Bäcker"
+                ],
+                correct: 1,
+                explanation: "Der Lehrer = the teacher. Der Schüler = the student."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-concierge-bell",
+                color: "text-teal-500",
+                text: "What does 'der Kellner' mean?",
+                options: [
+                    "The chef",
+                    "The waiter",
+                    "The cashier"
+                ],
+                correct: 1,
+                explanation: "Der Kellner = the waiter (in a restaurant or cafe)."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-question-circle",
+                color: "text-teal-500",
+                text: "How do you ask 'What is your profession?' informally?",
+                options: [
+                    "Wo arbeitest du?",
+                    "Was bist du von Beruf?",
+                    "Wer bist du?"
+                ],
+                correct: 1,
+                explanation: "'Was bist du von Beruf?' is the standard way to ask someone's profession."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-briefcase",
+                color: "text-teal-500",
+                text: "Complete: 'Er arbeitet ________ Ingenieur.' (He works as an engineer.)",
+                options: [
+                    "bei",
+                    "als",
+                    "von"
+                ],
+                correct: 1,
+                explanation: "We use 'als' to say 'as a [profession]'. Er arbeitet als Ingenieur."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-building",
+                color: "text-teal-500",
+                text: "Translate: 'Ich arbeite bei Siemens.'",
+                options: [
+                    "I work as Siemens.",
+                    "I work at/for Siemens.",
+                    "I am Siemens."
+                ],
+                correct: 1,
+                explanation: "Use 'bei' + [Company Name] to say where you work."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-bread-slice",
+                color: "text-teal-500",
+                text: "Who bakes bread (Brot backen)?",
+                options: [
+                    "der Bäcker",
+                    "der Fleischer",
+                    "der Friseur"
+                ],
+                correct: 0,
+                explanation: "Der Bäcker = the baker. Fleischer = butcher, Friseur = hairdresser."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-shopping-cart",
+                color: "text-teal-500",
+                text: "What is the German word for 'Salesperson / Shop assistant' (male)?",
+                options: [
+                    "der Verkäufer",
+                    "der Käufer",
+                    "der Manager"
+                ],
+                correct: 0,
+                explanation: "Der Verkäufer = salesperson (from the verb 'verkaufen' = to sell)."
+            },
+            {
+                category: "Die Berufe (Professions)",
+                icon: "fa-shield-alt",
+                color: "text-teal-500",
+                text: "Translate: 'die Polizistin'",
+                options: [
+                    "The male police officer",
+                    "The female police officer",
+                    "The politician"
+                ],
+                correct: 1,
+                explanation: "Die Polizistin is a female police officer (male = der Polizist)."
+            }
+        ];
+
+        // Matching Game Data
+        const matchingPairs = [
+            { id: 1, de: "Die Jacke", en: "The jacket" },
+            { id: 2, de: "Das Wetter", en: "The weather" },
+            { id: 3, de: "Kalt", en: "Cold" },
+            { id: 4, de: "Gekauft", en: "Bought" },
+            { id: 5, de: "Dieser", en: "This one (masc)" },
+            { id: 6, de: "Die Schuhe", en: "The shoes" }
+        ];
+
+        // State Variables
+        let playerName = "";
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isAnswered = false;
+        
+        // Matching State
+        let selectedDeId = null;
+        let selectedEnId = null;
+        let matchedCount = 0;
+        let matchScore = 0;
+
+        // Elements
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            matching: document.getElementById('matching-screen'),
+            certificate: document.getElementById('certificate-screen')
+        };
+        const nameInput = document.getElementById('playerNameInput');
+        const nameError = document.getElementById('name-error');
+        
+        // Modal Elements
+        const modal = document.getElementById('custom-modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalIcon = document.getElementById('modal-icon');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+
+        function startGame() {
+            playerName = nameInput.value.trim();
+            if (playerName === "") {
+                nameError.classList.remove('hidden');
+                nameInput.classList.add('border-red-500');
+                return;
+            }
+            
+            nameError.classList.add('hidden');
+            nameInput.classList.remove('border-red-500');
+            
+            screens.start.classList.add('hidden');
+            screens.game.classList.remove('hidden');
+            
+            currentQuestionIndex = 0;
+            score = 0;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            isAnswered = false;
+            const q = questions[currentQuestionIndex];
+            
+            // Update UI
+            document.getElementById('current-q-num').textContent = currentQuestionIndex + 1;
+            const progress = ((currentQuestionIndex) / questions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            
+            document.getElementById('category-badge').innerHTML = `<i class="fas ${q.icon} ${q.color} mr-2"></i> ${q.category}`;
+            document.getElementById('question-text').textContent = q.text;
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = ''; // Clear previous
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all font-medium text-gray-700 flex items-center justify-between group';
+                btn.innerHTML = `
+                    <span>${opt}</span>
+                    <i class="fas fa-check-circle text-gray-300 opacity-0 group-hover:opacity-50 transition-opacity"></i>
+                `;
+                btn.onclick = () => checkAnswer(index, btn);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex, btnElement) {
+            if (isAnswered) return;
+            isAnswered = true;
+
+            const q = questions[currentQuestionIndex];
+            const isCorrect = (selectedIndex === q.correct);
+            const allButtons = document.getElementById('options-container').querySelectorAll('button');
+
+            // Style the buttons
+            allButtons.forEach((btn, i) => {
+                btn.disabled = true;
+                btn.classList.remove('hover:border-blue-500', 'hover:bg-blue-50', 'cursor-pointer');
+                
+                const icon = btn.querySelector('i');
+                icon.classList.remove('opacity-0', 'group-hover:opacity-50');
+
+                if (i === q.correct) {
+                    btn.classList.add('border-green-500', 'bg-green-50', 'text-green-800');
+                    icon.className = 'fas fa-check-circle text-green-500';
+                } else if (i === selectedIndex && !isCorrect) {
+                    btn.classList.add('border-red-500', 'bg-red-50', 'text-red-800');
+                    icon.className = 'fas fa-times-circle text-red-500';
+                }
+            });
+
+            if (isCorrect) score++;
+
+            // Show Feedback Modal after short delay
+            setTimeout(() => {
+                showModal(isCorrect, q.explanation);
+            }, 500);
+        }
+
+        function showModal(isCorrect, explanation) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            // Small trick to trigger transition
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            }, 10);
+
+            if (isCorrect) {
+                modalIcon.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
+                modalTitle.textContent = "Richtig! (Correct)";
+                modalTitle.className = "text-xl font-bold mb-2 text-green-600";
+            } else {
+                modalIcon.innerHTML = '<i class="fas fa-times-circle text-red-500"></i>';
+                modalTitle.textContent = "Falsch! (Incorrect)";
+                modalTitle.className = "text-xl font-bold mb-2 text-red-600";
+            }
+
+            modalMessage.textContent = explanation;
+        }
+
+        function closeModalAndNext() {
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                
+                currentQuestionIndex++;
+                if (currentQuestionIndex < questions.length) {
+                    loadQuestion();
+                } else {
+                    startMatchingGame();
+                }
+            }, 200);
+        }
+
+        // --- MATCHING GAME LOGIC ---
+        function startMatchingGame() {
+            screens.game.classList.add('hidden');
+            screens.matching.classList.remove('hidden');
+            
+            selectedDeId = null;
+            selectedEnId = null;
+            matchedCount = 0;
+            matchScore = 0;
+
+            const colDe = document.getElementById('matching-col-de');
+            const colEn = document.getElementById('matching-col-en');
+            colDe.innerHTML = '';
+            colEn.innerHTML = '';
+
+            // Shuffle data independently
+            const shuffledDe = [...matchingPairs].sort(() => Math.random() - 0.5);
+            const shuffledEn = [...matchingPairs].sort(() => Math.random() - 0.5);
+
+            shuffledDe.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-3 md:p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all font-medium text-gray-700 bg-white';
+                btn.textContent = item.de;
+                btn.dataset.id = item.id;
+                btn.dataset.type = 'de';
+                btn.onclick = () => handleMatchClick(btn);
+                colDe.appendChild(btn);
+            });
+
+            shuffledEn.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-right p-3 md:p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all font-medium text-gray-700 bg-white';
+                btn.textContent = item.en;
+                btn.dataset.id = item.id;
+                btn.dataset.type = 'en';
+                btn.onclick = () => handleMatchClick(btn);
+                colEn.appendChild(btn);
+            });
+        }
+
+        function handleMatchClick(btn) {
+            if (btn.classList.contains('matched')) return;
+
+            const type = btn.dataset.type;
+            const id = btn.dataset.id;
+            const colDe = document.getElementById('matching-col-de');
+            const colEn = document.getElementById('matching-col-en');
+
+            // Handle selection visually
+            const siblings = (type === 'de' ? colDe : colEn).querySelectorAll('button:not(.matched)');
+            siblings.forEach(b => {
+                b.classList.remove('border-blue-500', 'bg-blue-50', 'ring-2', 'ring-blue-300');
+                b.classList.add('border-gray-200');
+            });
+
+            btn.classList.remove('border-gray-200');
+            btn.classList.add('border-blue-500', 'bg-blue-50', 'ring-2', 'ring-blue-300');
+
+            if (type === 'de') selectedDeId = id;
+            if (type === 'en') selectedEnId = id;
+
+            // Check match if both selected
+            if (selectedDeId && selectedEnId) {
+                const deBtn = colDe.querySelector(`button[data-id="${selectedDeId}"][data-type="de"]`);
+                const enBtn = colEn.querySelector(`button[data-id="${selectedEnId}"][data-type="en"]`);
+
+                if (selectedDeId === selectedEnId) {
+                    // Correct Match
+                    matchScore++;
+                    matchedCount++;
+                    [deBtn, enBtn].forEach(b => {
+                        b.classList.remove('border-blue-500', 'bg-blue-50', 'ring-2', 'ring-blue-300', 'hover:border-blue-500');
+                        b.classList.add('border-green-500', 'bg-green-100', 'text-green-800', 'matched', 'opacity-50', 'cursor-default');
+                    });
+                    
+                    if (matchedCount === matchingPairs.length) {
+                        document.getElementById('matching-next-btn').classList.remove('hidden');
+                    }
+                } else {
+                    // Wrong Match
+                    [deBtn, enBtn].forEach(b => {
+                        b.classList.remove('border-blue-500', 'bg-blue-50', 'ring-2', 'ring-blue-300');
+                        b.classList.add('border-red-500', 'bg-red-50', 'shake');
+                        setTimeout(() => {
+                            b.classList.remove('border-red-500', 'bg-red-50', 'shake');
+                            b.classList.add('border-gray-200');
+                        }, 500);
+                    });
+                }
+                // Reset selections
+                selectedDeId = null;
+                selectedEnId = null;
+            }
+        }
+
+        function showCertificate() {
+            screens.matching.classList.add('hidden');
+            screens.certificate.classList.remove('hidden');
+            
+            // Total score: Quiz score + Matching score
+            const totalScore = score + matchScore;
+
+            // Set Certificate Data
+            document.getElementById('cert-name').textContent = playerName;
+            document.getElementById('cert-score').textContent = totalScore;
+            
+            // Generate Date
+            const today = new Date();
+            const dateString = today.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('cert-date').textContent = dateString;
+
+            // Set Grade Text
+            const gradeEl = document.getElementById('cert-grade');
+            if (totalScore === 46) {
+                gradeEl.textContent = "Ausgezeichnet! (Perfect)";
+                gradeEl.className = "text-sm font-semibold text-green-600 mt-1";
+            } else if (totalScore >= 38) {
+                gradeEl.textContent = "Sehr Gut! (Very Good)";
+                gradeEl.className = "text-sm font-semibold text-blue-600 mt-1";
+            } else if (totalScore >= 25) {
+                gradeEl.textContent = "Gut! (Good)";
+                gradeEl.className = "text-sm font-semibold text-yellow-600 mt-1";
+            } else {
+                gradeEl.textContent = "Noch mal üben! (Practice again)";
+                gradeEl.className = "text-sm font-semibold text-red-600 mt-1";
+            }
+            
+            // Confetti effect (simple using JS)
+            createConfetti();
+        }
+
+        function restartGame() {
+            screens.certificate.classList.add('hidden');
+            screens.start.classList.remove('hidden');
+            nameInput.value = '';
+            document.getElementById('matching-next-btn').classList.add('hidden');
+        }
+
+        // Simple Confetti Animation for victory
+        function createConfetti() {
+            const colors = ['#ef4444', '#3b82f6', '#eab308', '#22c55e', '#a855f7'];
+            for(let i=0; i<50; i++) {
+                let confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.top = '-10px';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.opacity = Math.random();
+                confetti.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
+                confetti.style.zIndex = '100';
+                confetti.style.pointerEvents = 'none';
+                
+                document.body.appendChild(confetti);
+                
+                // Animation
+                let y = 0;
+                let gravity = Math.random() * 2 + 1;
+                let id = setInterval(() => {
+                    y += gravity;
+                    confetti.style.top = y + 'px';
+                    if(y > window.innerHeight) {
+                        clearInterval(id);
+                        confetti.remove();
+                    }
+                }, 10);
+            }
+        }
+    </script>
+</body>
+</html>
