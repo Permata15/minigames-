@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Bar spektrum neon -->
+    <path android:fillColor="#FF00F0FF" android:pathData="M34,62h6v14h-6z" />
+    <path android:fillColor="#FF00F0FF" android:pathData="M43,48h6v28h-6z" />
+    <path android:fillColor="#FFB14CFF" android:pathData="M52,36h6v40h-6z" />
+    <path android:fillColor="#FFFF2BD6" android:pathData="M61,44h6v32h-6z" />
+    <path android:fillColor="#FFFF2BD6" android:pathData="M70,56h6v20h-6z" />
+    <path android:strokeColor="#FF00F0FF" android:strokeWidth="2"
+        android:fillColor="#00000000"
+        android:pathData="M30,32h48v48h-48z" />
+</vector>
