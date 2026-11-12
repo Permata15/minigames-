@@ -249,6 +249,7 @@
       ${hud()}
       <h2 class="light">🗺️ Peta Petualangan</h2>
       <div class="badges" aria-label="Lencana">${badges}</div>
+      ${Object.keys(S.bosses).length ? '<button class="btn block" style="margin-bottom:16px" data-act="cert">📜 Lihat Sertifikat (Urkunde)</button>' : ''}
       <div class="map-path">${regions}</div>
       ${nav('map')}
     `);
@@ -564,6 +565,7 @@
     } else if (win && b.kind === 'boss' && b.ref + 1 < LEVELS.length) {
       nextBtn = `<button class="btn" data-act="region" data-arg="${b.ref + 1}">🗺️ Negeri berikutnya</button>`;
     }
+    if (win && b.kind === 'boss') nextBtn += '<button class="btn blue" data-act="cert">📜 Sertifikat</button>';
     const backAct = b.kind === 'topic' ? `data-act="region" data-arg="${TOPICS[b.ref].li}"`
       : b.kind === 'boss' ? `data-act="region" data-arg="${b.ref}"` : 'data-act="reviewScreen"';
     const retry = b.kind === 'topic' ? `data-act="fight" data-arg="${b.ref}"`
@@ -654,6 +656,47 @@
     `, null, 'settings');
   }
 
+  /* ---------- Layar: Sertifikat (Urkunde) ---------- */
+  function screenCertificate() {
+    const beaten = LEVELS.filter(lv => S.bosses[lv.id]);
+    if (!beaten.length) { toast('Kalahkan Boss A1 dulu untuk mendapat sertifikat 👑'); return screenMap(); }
+    const top = beaten[beaten.length - 1];
+    const all = beaten.length === LEVELS.length;
+    const rows = LEVELS.map(lv => {
+      const ok = !!S.bosses[lv.id];
+      const st = regionStars(lv), max = lv.topics.length * 3;
+      return `<tr><td><b>${lv.id}</b> · ${esc(lv.title)}</td><td>${ok ? '✅ bestanden' : '—'}</td><td>${st}/${max} ★</td></tr>`;
+    }).join('');
+    const date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+    render(`
+      <div class="topbar no-print">
+        <button class="icon-btn" data-act="map" aria-label="Kembali ke peta">⬅</button>
+        <h2>📜 Sertifikat</h2>
+      </div>
+      <div class="card certificate">
+        <div class="cert-seal" aria-hidden="true">${all ? '🏆' : '🏅'}</div>
+        <div class="cert-kicker">Grammatik-Abenteuer</div>
+        <h1 class="cert-title">Urkunde</h1>
+        <p class="cert-small">Hiermit wird bestätigt, dass</p>
+        <div class="cert-name">${S.hero} ${esc(S.name)}</div>
+        <p class="cert-small">${all
+          ? 'alle fünf Länder bezwungen hat und den Titel <b>Grammatik-Meister (C1)</b> trägt.'
+          : `die deutsche Grammatik bis zum Niveau <b>${top.id}</b> erfolgreich gemeistert hat.`}</p>
+        <p class="cert-id">(Telah berhasil menguasai grammatik bahasa Jerman sampai level ${top.id}.)</p>
+        <div class="tbl-wrap"><table class="tbl">
+          <tr><th>Niveau</th><th>Boss</th><th>Sterne</th></tr>
+          ${rows}
+        </table></div>
+        <p class="cert-small">Spielerlevel ${playerLevel()} · ${S.xp} XP</p>
+        <div class="cert-foot"><span>${date}</span><span>✒️ Grammatik-Abenteuer</span></div>
+      </div>
+      <div class="btn-row no-print">
+        <button class="btn" data-act="print">🖨️ Cetak / Simpan PDF</button>
+        <button class="btn secondary" data-act="map">🗺️ Kembali ke peta</button>
+      </div>
+    `, null, 'cert');
+  }
+
   /* ---------- Aksi tombol ---------- */
   const ACTIONS = {
     start: screenStart,
@@ -666,6 +709,8 @@
     startReview: () => startBattle('review'),
     shop: screenShop,
     settings: screenSettings,
+    cert: screenCertificate,
+    print: () => window.print(),
     say: (_, el) => speak(el.dataset.say),
     pickHero: h => {
       chosenHero = h;

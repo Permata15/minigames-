@@ -221,6 +221,37 @@ window.GRAMMATIK_LEVELS.push({
         ['f', 'Der Raum steht Ihnen jederzeit zur ___.', ['Verfügung'], 'zur Verfügung stehen = tersedia'],
         ['o', 'Die Regierung muss sofort Maßnahmen ergreifen.', 'Pemerintah harus segera mengambil tindakan.', 'Maßnahmen ergreifen']
       ]
+    },
+    {
+      id: 'b2-7',
+      title: 'Futur II',
+      sub: 'Akan sudah selesai & dugaan tentang masa lalu',
+      monster: ['Chronos-Uhrwerk', '🕰️'],
+      theory: `
+        <p><b>Futur II</b> = <b>werden</b> + <b>Partizip II</b> + <b>haben / sein</b> (Infinitiv Perfekt di akhir).</p>
+        <div class="tbl-wrap"><table class="tbl">
+          <tr><th>Penggunaan</th><th>Contoh</th></tr>
+          <tr><td>Tindakan yang <b>sudah selesai</b> pada suatu titik di masa depan</td><td>Bis Freitag <b>werde</b> ich die Arbeit <b>beendet haben</b>.</td></tr>
+          <tr><td><b>Dugaan</b> tentang sesuatu yang sudah terjadi (sering dengan <i>wohl, schon, bestimmt</i>)</td><td>Er <b>wird</b> wohl den Bus <b>verpasst haben</b>.</td></tr>
+        </table></div>
+        <div class="tip">💡 Pilih <b>haben</b> atau <b>sein</b> sama seperti di Perfekt: <i>gegessen haben</i>, tetapi <i>gegangen sein, angekommen sein</i>.</div>
+        <p>Dalam anak kalimat: <i>…, dass er den Bus verpasst haben <b>wird</b>.</i></p>`,
+      examples: [
+        ['Bis Freitag werde ich die Arbeit beendet haben.', 'Sampai Jumat saya sudah akan menyelesaikan pekerjaan itu.'],
+        ['In zwei Jahren wird sie ihr Studium abgeschlossen haben.', 'Dua tahun lagi dia sudah akan menamatkan kuliahnya.'],
+        ['Er wird wohl den Bus verpasst haben.', 'Dia mungkin ketinggalan bus.'],
+        ['Bis du kommst, werden wir schon gegessen haben.', 'Saat kamu datang, kami sudah akan selesai makan.'],
+        ['Sie wird schon nach Hause gegangen sein.', 'Dia mungkin sudah pulang.']
+      ],
+      ex: [
+        ['m', 'Bis morgen werde ich den Bericht ___.', ['geschrieben haben', 'schreiben haben', 'geschrieben sein', 'geschrieben werden'], 'Futur II: werden + Partizip II + haben'],
+        ['m', 'Bis 20 Uhr ___ wir in Berlin angekommen sein.', ['werden', 'haben', 'sind', 'wurden'], 'Futur II: werden … angekommen sein'],
+        ['f', 'Er ist nicht da. Er wird wohl schon nach Hause gegangen ___. (haben/sein)', ['sein'], 'gehen → sein; dugaan tentang masa lalu'],
+        ['f', 'In einem Jahr wird sie ihr Studium abgeschlossen ___. (haben/sein)', ['haben'], 'abschließen → haben'],
+        ['m', '„Sie wird den Termin vergessen haben.“ berarti …', ['Dia mungkin sudah lupa janjinya.', 'Dia akan lupa janjinya.', 'Dia harus melupakan janjinya.', 'Dia sedang melupakan janjinya.'], 'Futur II + konteks sekarang → dugaan tentang masa lalu'],
+        ['m', 'Bis du zurückkommst, ___ ich aufgeräumt haben.', ['werde', 'wird', 'habe', 'bin'], 'ich → werde … aufgeräumt haben'],
+        ['o', 'Bis Freitag werde ich die Arbeit beendet haben.', 'Sampai Jumat saya sudah akan menyelesaikan pekerjaan itu.', 'werden + Partizip II + haben']
+      ]
     }
   ]
 });

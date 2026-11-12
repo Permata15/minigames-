@@ -335,3 +335,29 @@ input[type=text]:focus { border-color: var(--blue); outline: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ----- Sertifikat ----- */
+.certificate {
+  text-align: center; position: relative;
+  border: 10px double #c9a227; background: #fffdf5;
+  padding: 28px 20px;
+}
+.cert-seal { font-size: 3.4rem; }
+.cert-kicker { letter-spacing: .25em; text-transform: uppercase; font-weight: 800; font-size: .8rem; color: #8a6d1d; }
+.cert-title { font-size: clamp(2.2rem, 9vw, 3.2rem); color: #8a6d1d; margin: 4px 0 8px; }
+.cert-name {
+  font-family: 'Fredoka', sans-serif; font-size: clamp(1.6rem, 7vw, 2.2rem);
+  border-bottom: 2px solid #c9a227; display: inline-block; padding: 0 12px 4px; margin: 4px 0 10px;
+}
+.cert-small { margin: 6px 0; }
+.cert-id { color: var(--muted); font-size: .88rem; margin: 0 0 10px; }
+.certificate .tbl { text-align: left; }
+.cert-foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; font-weight: 800; color: #8a6d1d; flex-wrap: wrap; }
+
+@media print {
+  body { background: #fff; }
+  .sky, .bottom-nav, .no-print, #toast { display: none !important; }
+  #app { max-width: none; padding: 0; }
+  .certificate { box-shadow: none; margin: 0; }
+  .screen { animation: none; }
+}

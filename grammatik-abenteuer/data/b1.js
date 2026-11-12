@@ -280,6 +280,42 @@ window.GRAMMATIK_LEVELS.push({
         ['m', '___ fährst du in den Urlaub? – Im August.', ['Wann', 'Als', 'Wenn', 'Ob'], 'Pertanyaan "kapan?" → wann'],
         ['o', 'Während ich arbeite, höre ich Musik.', 'Saat bekerja, saya mendengarkan musik.', 'Anak kalimat di depan → induk kalimat dimulai kata kerja']
       ]
+    },
+    {
+      id: 'b1-8',
+      title: 'Futur I',
+      sub: 'Masa depan, rencana, prediksi: werden + Infinitiv',
+      monster: ['Zukunfts-Stern', '🌠'],
+      theory: `
+        <p><b>Futur I</b> dibentuk dengan <b>werden</b> (posisi 2) + <b>Infinitiv</b> (akhir).</p>
+        <div class="tbl-wrap"><table class="tbl">
+          <tr><th>ich</th><th>du</th><th>er/sie/es</th><th>wir</th><th>ihr</th><th>sie/Sie</th></tr>
+          <tr><td>werde</td><td><span class="de">wirst</span></td><td><span class="de">wird</span></td><td>werden</td><td>werdet</td><td>werden</td></tr>
+        </table></div>
+        <h3>Kapan dipakai?</h3>
+        <ul>
+          <li><b>Rencana / janji</b>: <i>Ich <b>werde</b> dich morgen <b>anrufen</b>.</i></li>
+          <li><b>Prediksi</b>: <i>Morgen <b>wird</b> es <b>regnen</b>.</i></li>
+          <li><b>Dugaan tentang sekarang</b> (sering dengan <i>wohl</i>): <i>Er <b>wird</b> wohl noch <b>schlafen</b>.</i></li>
+        </ul>
+        <div class="tip">💡 Dalam percakapan, masa depan sering cukup memakai <b>Präsens + keterangan waktu</b>: <i>Morgen fahre ich nach Berlin.</i></div>
+        <p>Dalam anak kalimat, <i>werden</i> berada di paling akhir: <i>…, dass er morgen kommen <b>wird</b>.</i></p>`,
+      examples: [
+        ['Ich werde dich morgen anrufen.', 'Aku akan meneleponmu besok.'],
+        ['Morgen wird es regnen.', 'Besok akan hujan.'],
+        ['Wirst du am Wochenende arbeiten?', 'Apakah kamu akan bekerja di akhir pekan?'],
+        ['Er wird wohl noch im Büro sein.', 'Dia mungkin masih di kantor.'],
+        ['Ich glaube, dass sie die Prüfung bestehen wird.', 'Saya yakin dia akan lulus ujian.']
+      ],
+      ex: [
+        ['m', 'Morgen ___ es regnen.', ['wird', 'werdet', 'wirst', 'wurde'], 'es → wird'],
+        ['m', 'Du ___ das schaffen, da bin ich sicher.', ['wirst', 'wird', 'werdest', 'werdet'], 'du → wirst'],
+        ['f', 'Wir ___ im Sommer nach Japan fliegen. (werden)', ['werden'], 'wir → werden'],
+        ['m', 'Ich glaube, dass er morgen ___.', ['kommen wird', 'wird kommen', 'kommt werden', 'werden kommt'], 'Anak kalimat → werden di paling akhir'],
+        ['m', 'Er geht nicht ans Telefon. Er ___ wohl noch schlafen.', ['wird', 'wurde', 'ist', 'hat'], 'Dugaan tentang sekarang → wird wohl + Infinitiv'],
+        ['f', 'Ihr ___ es nicht bereuen! (werden)', ['werdet'], 'ihr → werdet'],
+        ['o', 'Nächstes Jahr werde ich in Deutschland studieren.', 'Tahun depan saya akan kuliah di Jerman.', 'werden di posisi 2, Infinitiv di akhir']
+      ]
     }
   ]
 });
