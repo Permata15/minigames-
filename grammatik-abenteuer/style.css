@@ -361,3 +361,13 @@ input[type=text]:focus { border-color: var(--blue); outline: none; }
   .certificate { box-shadow: none; margin: 0; }
   .screen { animation: none; }
 }
+
+/* ----- Blitz-Quiz ----- */
+.blitz-score {
+  font-family: 'Fredoka', sans-serif; font-size: 1.3rem; font-weight: 700;
+  background: var(--gold); color: #2b1d00; border-radius: 12px; padding: 4px 12px; min-width: 3.2em; text-align: center;
+}
+.blitz-timer { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 800; margin-bottom: 14px; }
+.blitz-timer .hpbar { flex: 1; max-width: none; margin: 0; }
+.blitz-timer .hpbar > span { background: linear-gradient(90deg, #4cd97b, #f5d76e); transition: width .2s linear; }
+.blitz-final { font-family: 'Fredoka', sans-serif; font-size: 2.6rem; color: var(--gold-dark); margin: 0; }

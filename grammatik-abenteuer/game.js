@@ -76,7 +76,7 @@
 
   /* ---------- Simpan / muat ---------- */
   function newSave(name, hero) {
-    return { name, hero, xp: 0, coins: 30, potions: 1, hints: 2, stars: {}, bosses: {}, mistakes: [], unlockAll: false, sound: true };
+    return { name, hero, xp: 0, coins: 30, potions: 1, hints: 2, stars: {}, bosses: {}, mistakes: [], blitz: {}, unlockAll: false, sound: true };
   }
   function loadSave() {
     try {
@@ -178,6 +178,7 @@
   function nav(active) {
     const items = [
       ['map', '🗺️', 'Peta'],
+      ['blitzMenu', '⚡', 'Blitz'],
       ['review', '📕', 'Fehlerheft' + (S.mistakes.length ? ' (' + S.mistakes.length + ')' : '')],
       ['shop', '🛒', 'Toko'],
       ['settings', '⚙️', 'Pengaturan']
@@ -697,6 +698,179 @@
     `, null, 'cert');
   }
 
+  /* ---------- Mode Blitz-Quiz (kuis cepat 60 detik) ---------- */
+  const BLITZ_SECONDS = 60;
+  let blitz = null;
+
+  function screenBlitzMenu() {
+    const rows = LEVELS.map((lv, li) => {
+      const open = regionUnlocked(li);
+      const best = (S.blitz && S.blitz[lv.id]) || 0;
+      return `<button class="topic-node" data-act="blitzStart" data-arg="${li}" ${open ? '' : 'disabled'}>
+        <div class="num" aria-hidden="true">${open ? lv.icon : '🔒'}</div>
+        <div class="t-body">
+          <div class="t-title">${lv.id} · ${esc(lv.title)}</div>
+          <div class="t-sub">${open ? 'Rekor: ' + best + ' poin' : 'Buka negeri ini dulu di peta'}</div>
+        </div>
+        <div class="t-stars">${open ? '⚡' : ''}</div>
+      </button>`;
+    }).join('');
+    render(`
+      ${hud()}
+      <h2 class="light">⚡ Blitz-Quiz</h2>
+      <div class="card">
+        <p style="margin-top:0">Jawab soal sebanyak mungkin dalam <b>${BLITZ_SECONDS} detik</b> dari semua topik satu level. Cocok untuk mengulang sebelum ujian!</p>
+        <ul>
+          <li>✅ Benar: <b>+10 poin</b>, ditambah bonus beruntun 🔥 sampai +10.</li>
+          <li>❌ Salah: beruntun kembali ke 0 dan soalnya masuk 📕 Fehlerheft.</li>
+          <li>Tidak ada nyawa — terus jawab sampai waktu habis!</li>
+        </ul>
+      </div>
+      ${rows}
+      ${nav('blitzMenu')}
+    `, null, 'blitzMenu');
+  }
+
+  function startBlitz(li) {
+    const lv = LEVELS[li];
+    const pool = [];
+    lv.topics.forEach(t => t.ex.forEach((q, i) => { if (q[0] !== 'o') pool.push({ q, tid: t.id, i }); }));
+    blitz = {
+      li, pool: shuffle(pool), n: 0, score: 0, streak: 0, bestStreak: 0, correct: 0, wrong: 0,
+      missed: [], endAt: Date.now() + BLITZ_SECONDS * 1000, cur: null, timer: null, token: Math.random()
+    };
+    blitz.timer = setInterval(tickBlitz, 200);
+    nextBlitz();
+  }
+
+  function tickBlitz() {
+    if (!blitz) return;
+    const left = Math.max(0, blitz.endAt - Date.now());
+    const bar = document.getElementById('blitzBar');
+    const txt = document.getElementById('blitzTime');
+    if (bar) bar.style.width = (100 * left / (BLITZ_SECONDS * 1000)) + '%';
+    if (txt) txt.textContent = Math.ceil(left / 1000) + ' s';
+    if (left <= 0) finishBlitz();
+  }
+
+  function nextBlitz() {
+    if (!blitz) return;
+    if (blitz.n >= blitz.pool.length) { blitz.pool = shuffle(blitz.pool); blitz.n = 0; }
+    blitz.cur = prepare(blitz.pool[blitz.n++]);
+    blitz.qNo = (blitz.qNo || 0) + 1;
+    screenBlitz();
+  }
+
+  function screenBlitz() {
+    const b = blitz, cur = b.cur, q = cur.item.q;
+    const left = Math.max(0, b.endAt - Date.now());
+    let body;
+    if (cur.type === 'm') {
+      body = `<div class="options">${cur.opts.map((o, i) => {
+        let cls = 'opt';
+        if (cur.answered && o.ok) cls += ' correct';
+        if (cur.answered && cur.result.given === i && !o.ok) cls += ' wrong';
+        return `<button class="${cls}" data-act="blitzMC" data-arg="${i}" ${cur.answered ? 'disabled' : ''}><span class="key">${i + 1}</span>${esc(o.text)}</button>`;
+      }).join('')}</div>`;
+    } else {
+      body = `<div class="fill-row">
+        <input type="text" id="blitzInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ketik jawaban + Enter" aria-label="Jawaban"
+          ${cur.answered ? 'disabled value="' + esc(cur.result.given) + '"' : ''}>
+        <button class="btn blue" data-act="blitzFill" ${cur.answered ? 'disabled' : ''}>Cek ✔</button>
+      </div>`;
+    }
+    let fb = '';
+    if (cur.answered) {
+      fb = cur.result.ok
+        ? `<div class="feedback ok" role="status"><div class="fb-title">✅ +${cur.result.points}${b.streak > 1 ? ' · 🔥 ' + b.streak + 'x' : ''}</div></div>`
+        : `<div class="feedback bad" role="status"><div class="fb-title">❌ ${esc(correctAnswerText(cur))}</div><div class="fb-expl">💬 ${esc(q[3] || '')}</div></div>`;
+    }
+    render(`
+      <div class="topbar">
+        <button class="icon-btn" data-act="blitzQuit" aria-label="Berhenti">✖ Stop</button>
+        <h2>⚡ Blitz ${LEVELS[b.li].id}</h2>
+        <div class="blitz-score" aria-label="Skor">${b.score}</div>
+      </div>
+      <div class="blitz-timer"><div class="hpbar"><span id="blitzBar" style="width:${100 * left / (BLITZ_SECONDS * 1000)}%"></span></div>
+        <span id="blitzTime">${Math.ceil(left / 1000)} s</span>${b.streak > 1 ? ' · 🔥 ' + b.streak : ''}</div>
+      <div class="card">
+        <div class="q-type">${cur.type === 'm' ? '🔘 Pilihan ganda' : '✏️ Isi titik-titik'} · ${esc(TOPICS[cur.item.tid].t.title)}</div>
+        <div class="q-text">${blankify(q[1])}</div>
+        ${body}
+        ${fb}
+      </div>
+    `, cur.type === 'f' && !cur.answered ? '#blitzInput' : null, 'blitz:' + b.qNo);
+  }
+
+  function answerBlitz(ok, given) {
+    const b = blitz, cur = b.cur;
+    if (!b || cur.answered) return;
+    cur.answered = true;
+    let points = 0;
+    if (ok) {
+      b.streak++; b.correct++;
+      b.bestStreak = Math.max(b.bestStreak, b.streak);
+      points = 10 + Math.min(b.streak - 1, 5) * 2;
+      b.score += points;
+      sfx('ok');
+    } else {
+      b.streak = 0; b.wrong++;
+      b.missed.push(cur.item);
+      addMistake(cur.item.tid + ':' + cur.item.i);
+      save();
+      sfx('bad');
+    }
+    cur.result = { ok, given, points };
+    screenBlitz();
+    const token = b.token;
+    setTimeout(() => { if (blitz && blitz.token === token && blitz.cur === cur) nextBlitz(); }, ok ? 500 : 1800);
+  }
+
+  function stopBlitzTimer() {
+    if (blitz && blitz.timer) clearInterval(blitz.timer);
+  }
+
+  function finishBlitz() {
+    const b = blitz;
+    if (!b) return;
+    stopBlitzTimer();
+    blitz = null;
+    const lv = LEVELS[b.li];
+    S.blitz = S.blitz || {};
+    const oldBest = S.blitz[lv.id] || 0;
+    const record = b.score > oldBest;
+    if (record) S.blitz[lv.id] = b.score;
+    const xp = b.correct * 3, coins = Math.floor(b.score / 20);
+    const lvlBefore = playerLevel();
+    S.xp += xp; S.coins += coins;
+    save();
+    if (playerLevel() > lvlBefore) setTimeout(() => toast('⬆️ Level up! Sekarang Level ' + playerLevel()), 600);
+    if (record && b.score > 0) { sfx('win'); confetti(); } else sfx('coin');
+    const seen = new Set();
+    const missed = b.missed.filter(it => { const k = it.tid + ':' + it.i; if (seen.has(k)) return false; seen.add(k); return true; })
+      .map(it => {
+        const q = it.q;
+        return `<li><div><div class="ex-de">${blankify(q[1])}</div><div class="ex-id">✅ ${esc(q[2][0])} — ${esc(q[3] || '')}</div></div></li>`;
+      }).join('');
+    render(`
+      <div class="card center result">
+        <div class="big" aria-hidden="true">${record && b.score > 0 ? '🏆' : '⏱️'}</div>
+        <h1>Zeit ist um! (Waktu habis!)</h1>
+        <p class="blitz-final">${b.score} poin</p>
+        ${record && b.score > 0 ? '<p>🎉 <b>Rekor baru</b> untuk ' + lv.id + '!</p>' : '<p class="muted">Rekor ' + lv.id + ': ' + oldBest + ' poin</p>'}
+        <div class="reward">
+          <span>✅ ${b.correct}</span><span>❌ ${b.wrong}</span><span>🔥 ${b.bestStreak}x</span>
+          <span>✨ +${xp} XP</span><span>🪙 +${coins}</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn" data-act="blitzStart" data-arg="${b.li}">↺ Main lagi</button>
+          <button class="btn secondary" data-act="blitzMenu">⚡ Pilih level</button>
+        </div>
+      </div>
+      ${missed ? `<div class="card"><h3>📕 Yang perlu diulang</h3><ul class="examples">${missed}</ul></div>` : ''}
+    `, '.btn');
+  }
+
   /* ---------- Aksi tombol ---------- */
   const ACTIONS = {
     start: screenStart,
@@ -710,6 +884,18 @@
     shop: screenShop,
     settings: screenSettings,
     cert: screenCertificate,
+    blitzMenu: screenBlitzMenu,
+    blitzStart: li => startBlitz(+li),
+    blitzMC: i => answerBlitz(blitz.cur.opts[+i].ok, +i),
+    blitzFill: () => {
+      const input = document.getElementById('blitzInput');
+      if (!input.value.trim()) { input.focus(); return; }
+      answerBlitz(blitz.cur.item.q[2].some(a => norm(a) === norm(input.value)), input.value.trim());
+    },
+    blitzQuit: () => {
+      if (!confirm('Berhenti sekarang? Skor saat ini tetap dihitung.')) return;
+      finishBlitz();
+    },
     print: () => window.print(),
     say: (_, el) => speak(el.dataset.say),
     pickHero: h => {
@@ -807,6 +993,12 @@
 
   // Keyboard: Enter = cek/lanjut, angka 1–4 = pilih jawaban
   document.addEventListener('keydown', e => {
+    if (blitz && blitz.cur) {
+      if (blitz.cur.answered) return;
+      if (blitz.cur.type === 'f' && e.key === 'Enter' && e.target.id === 'blitzInput') { e.preventDefault(); ACTIONS.blitzFill(); }
+      if (blitz.cur.type === 'm' && /^[1-9]$/.test(e.key) && blitz.cur.opts[+e.key - 1]) ACTIONS.blitzMC(+e.key - 1);
+      return;
+    }
     if (!battle || !battle.cur) {
       if (e.key === 'Enter' && e.target.id === 'heroName') ACTIONS.newGame();
       return;
