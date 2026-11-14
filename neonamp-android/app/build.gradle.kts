@@ -12,15 +12,24 @@ android {
         applicationId = "com.permata.neonamp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
+    }
+
+    // Kunci tetap (disimpan di repo) supaya setiap APK baru bisa dipasang menimpa versi lama.
+    signingConfigs {
+        create("neonamp") {
+            storeFile = file("neonamp.keystore")
+            storePassword = "neonamp123"
+            keyAlias = "neonamp"
+            keyPassword = "neonamp123"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Ditandatangani dengan debug key supaya APK langsung bisa dipasang.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("neonamp")
         }
     }
 
