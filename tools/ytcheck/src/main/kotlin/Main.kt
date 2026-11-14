@@ -1,0 +1,68 @@
+// Diagnostik: cek cara request mana yang diterima server YouTube untuk unduhan.
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.downloader.Downloader
+import org.schabi.newpipe.extractor.downloader.Response
+import org.schabi.newpipe.extractor.stream.DeliveryMethod
+import org.schabi.newpipe.extractor.stream.StreamInfo
+import java.util.concurrent.TimeUnit
+
+const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+val client = OkHttpClient.Builder().readTimeout(30, TimeUnit.SECONDS).build()
+
+object D : Downloader() {
+    override fun execute(r: org.schabi.newpipe.extractor.downloader.Request): Response {
+        val b = okhttp3.Request.Builder().method(r.httpMethod(), r.dataToSend()?.toRequestBody()).url(r.url()).addHeader("User-Agent", UA)
+        r.headers().forEach { (k, v) -> b.removeHeader(k); v.forEach { b.addHeader(k, it) } }
+        client.newCall(b.build()).execute().use { return Response(it.code, it.message, it.headers.toMultimap(), it.body?.string(), it.request.url.toString()) }
+    }
+}
+
+fun probe(label: String, req: Request) {
+    val t = System.currentTimeMillis()
+    try {
+        client.newCall(req).execute().use { r ->
+            val n = r.body?.byteStream()?.readNBytes(1 shl 20)?.size ?: 0
+            println("  [$label] HTTP ${r.code} bytes=$n ${System.currentTimeMillis() - t}ms CR=${r.header("Content-Range")} CE=${r.header("Content-Encoding")}")
+        }
+    } catch (e: Exception) { println("  [$label] EXC ${e.javaClass.simpleName}: ${e.message}") }
+}
+
+fun main(args: Array<String>) {
+    NewPipe.init(D)
+    val yt = ServiceList.YouTube
+    val ids = mutableListOf("dQw4w9WgXcQ")
+    runCatching {
+        val s = org.schabi.newpipe.extractor.search.SearchInfo.getInfo(yt, yt.searchQHFactory.fromQuery("coldplay yellow", listOf("videos"), ""))
+        println("search ok: ${s.relatedItems.size} items, errors=${s.errors.size}")
+        s.relatedItems.firstOrNull()?.let { ids += yt.streamLHFactory.getId(it.url) }
+    }.onFailure { println("SEARCH FAIL: $it") }
+
+    for (id in ids) {
+        println("=== $id")
+        val info = try { StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=$id") } catch (e: Exception) {
+            println("STREAMINFO FAIL: ${e.javaClass.name}: ${e.message}"); continue
+        }
+        println("audio=${info.audioStreams.size} videoOnly=${info.videoOnlyStreams.size} muxed=${info.videoStreams.size}")
+        info.audioStreams.forEach { println("  A itag=${it.itag} ${it.format} ${it.deliveryMethod} br=${it.averageBitrate} len=${it.itagItem?.contentLength}") }
+        info.videoOnlyStreams.take(8).forEach { println("  V itag=${it.itag} ${it.format} ${it.codec} ${it.height}p ${it.deliveryMethod} len=${it.itagItem?.contentLength}") }
+        val a = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }.maxByOrNull { it.averageBitrate } ?: continue
+        val v = info.videoOnlyStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.height <= 720 }.maxByOrNull { it.height }
+        for ((name, url) in listOfNotNull("audio" to a.content, v?.let { "video" to it.content })) {
+            val c = Regex("[?&]c=([^&]+)").find(url)?.groupValues?.get(1)
+            println(" $name client=$c host=${url.substringAfter("://").substringBefore("/")}")
+            probe("GET range-header UA", Request.Builder().url(url).header("User-Agent", UA).header("Range", "bytes=0-1048575").build())
+            probe("GET range-header UA identity", Request.Builder().url(url).header("User-Agent", UA).header("Accept-Encoding", "identity").header("Range", "bytes=0-1048575").build())
+            probe("GET range-header noUA", Request.Builder().url(url).header("Range", "bytes=0-1048575").build())
+            probe("GET &range param", Request.Builder().url("$url&range=0-1048575").header("User-Agent", UA).build())
+            probe("POST &range&rn", Request.Builder().url("$url&range=0-1048575&rn=1").header("User-Agent", UA)
+                .header("Origin", "https://www.youtube.com").header("Referer", "https://www.youtube.com/")
+                .post(byteArrayOf(0x78, 0).toRequestBody("application/octet-stream".toMediaType())).build())
+            probe("GET mid range-header", Request.Builder().url(url).header("User-Agent", UA).header("Range", "bytes=2097152-3145727").build())
+        }
+    }
+}
