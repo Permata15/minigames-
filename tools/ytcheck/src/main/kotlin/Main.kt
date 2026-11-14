@@ -62,6 +62,21 @@ fun main(args: Array<String>) {
             probe("POST &range&rn", Request.Builder().url("$url&range=0-1048575&rn=1").header("User-Agent", UA)
                 .header("Origin", "https://www.youtube.com").header("Referer", "https://www.youtube.com/")
                 .post(byteArrayOf(0x78, 0).toRequestBody("application/octet-stream".toMediaType())).build())
+            val vua = org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.getVisionOsUserAgent(null)
+            probe("GET range visionOS UA", Request.Builder().url(url).header("User-Agent", vua).header("Range", "bytes=0-1048575").build())
+            // Unduh utuh per 2MB (sama seperti aplikasi) dan ukur kecepatan
+            val t0 = System.currentTimeMillis(); var pos = 0L; var total = -1L; var err: String? = null
+            while (total < 0 || pos < total) {
+                val end = if (total > 0) minOf(pos + (2L shl 20), total) - 1 else pos + (2L shl 20) - 1
+                client.newCall(Request.Builder().url(url).header("User-Agent", vua).header("Accept-Encoding", "identity").header("Range", "bytes=$pos-$end").build()).execute().use { r ->
+                    if (r.code != 206) { err = "HTTP ${r.code} at $pos"; return@use }
+                    total = r.header("Content-Range")!!.substringAfter('/').toLong()
+                    pos += r.body!!.byteStream().readAllBytes().size
+                }
+                if (err != null || System.currentTimeMillis() - t0 > 60_000) break
+            }
+            val sec = (System.currentTimeMillis() - t0) / 1000.0
+            println("  [FULL visionOS UA] $pos/$total bytes in ${sec}s = ${(pos / 1024 / maxOf(sec, 0.01)).toInt()} KB/s err=$err")
             probe("GET mid range-header", Request.Builder().url(url).header("User-Agent", UA).header("Range", "bytes=2097152-3145727").build())
         }
     }

@@ -79,6 +79,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private var lyricsFor: String? = null
 
     init {
+        // Kabar unduhan selesai / gagal (beserta alasannya)
+        viewModelScope.launch { neon.downloads.events.collect { _message.value = it } }
         viewModelScope.launch {
             val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
             val c = MediaController.Builder(app, token).buildAsync().await()

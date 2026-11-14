@@ -23,6 +23,6 @@ class NeonAmpApp : Application() {
         Neon.load(this)
         audioLib = Library(this, "music")
         videoLib = Library(this, "video")
-        downloads = DownloadManager(audioLib, videoLib)
+        downloads = DownloadManager(this, audioLib, videoLib)
     }
 }

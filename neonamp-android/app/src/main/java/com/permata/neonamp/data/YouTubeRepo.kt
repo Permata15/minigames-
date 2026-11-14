@@ -61,6 +61,9 @@ object YouTubeRepo {
         )
     }
 
+    /** Lupakan link lama (misal setelah ditolak 403) supaya diambil ulang. */
+    fun invalidate(videoId: String) { cache.remove(videoId) }
+
     private fun infoBlocking(videoId: String): StreamInfo {
         cache[videoId]?.let { if (System.currentTimeMillis() - it.at < CACHE_MS) return it.info }
         val info = StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=$videoId")
