@@ -10,6 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.permata.neonamp.NeonAmpApp
+import com.permata.neonamp.data.Kind
 import com.permata.neonamp.data.LocalMusic
 import com.permata.neonamp.data.Lyrics
 import com.permata.neonamp.data.LyricsResult
@@ -47,10 +48,14 @@ sealed interface LyricsState {
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val neon = app as NeonAmpApp
-    val library = neon.library.tracks
+    val audioLibrary = neon.audioLib.tracks
+    val videoLibrary = neon.videoLib.tracks
     val downloads = neon.downloads.progress
 
     private var controller: MediaController? = null
+    private val _player = MutableStateFlow<Player?>(null)
+    /** Untuk menempelkan layar video (PlayerView). */
+    val player: StateFlow<Player?> = _player.asStateFlow()
 
     private val _ui = MutableStateFlow(PlayerUi())
     val ui: StateFlow<PlayerUi> = _ui.asStateFlow()
@@ -78,6 +83,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
             val c = MediaController.Builder(app, token).buildAsync().await()
             controller = c
+            _player.value = c
             c.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) = sync()
                 override fun onPlayerError(error: PlaybackException) {
@@ -126,15 +132,28 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
         _lyrics.value = LyricsState.Loading
         lyricsJob = viewModelScope.launch {
-            val res = Lyrics.load(track, neon.library.lyricsDir)
+            val res = Lyrics.load(track, neon.audioLib.lyricsDir)
             _lyrics.value = if (res == null || res.lines.isEmpty()) LyricsState.NotFound else LyricsState.Ready(res)
         }
     }
 
     // ---------- Kontrol ----------
-    fun playList(list: List<Track>, index: Int) {
+    /** Versi terbaik untuk diputar: file offline bila ada, sesuai mode audio/video. */
+    private fun resolveForPlay(track: Track, video: Boolean): Track {
+        if (track.source != com.permata.neonamp.data.Source.YOUTUBE) return track.copy(wantVideo = false)
+        return if (video) {
+            neon.videoLib.get(track.id) ?: track.copy(wantVideo = true, videoPath = null)
+        } else {
+            neon.audioLib.get(track.id)
+                // Video offline juga punya file audio sendiri → bisa diputar audio saja tanpa internet.
+                ?: neon.videoLib.get(track.id)?.copy(wantVideo = false)
+                ?: track.copy(wantVideo = false, videoPath = null, localPath = null)
+        }
+    }
+
+    fun playList(list: List<Track>, index: Int, video: Boolean = false) {
         val c = controller ?: return
-        val items: List<MediaItem> = list.map { neon.library.preferOffline(it).toMediaItem() }
+        val items: List<MediaItem> = list.map { resolveForPlay(it, video).toMediaItem() }
         c.setMediaItems(items, index, 0L)
         c.prepare()
         c.play()
@@ -146,7 +165,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addToQueue(track: Track) {
         val c = controller ?: return
-        c.addMediaItem(neon.library.preferOffline(track).toMediaItem())
+        c.addMediaItem(resolveForPlay(track, false).toMediaItem())
         if (c.mediaItemCount == 1) { c.prepare(); c.play() }
         _message.value = "Ditambahkan ke antrean"
     }
@@ -157,6 +176,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             if (c.playbackState == Player.STATE_IDLE) c.prepare()
             c.play()
         }
+    }
+
+    /** Ganti lagu yang sedang diputar antara mode video ⇄ audio saja, posisi tetap. */
+    fun toggleVideoMode() {
+        val c = controller ?: return
+        val t = Track.fromMediaItem(c.currentMediaItem) ?: return
+        if (t.source != com.permata.neonamp.data.Source.YOUTUBE) return
+        val index = c.currentMediaItemIndex
+        val pos = c.currentPosition
+        val wasPlaying = c.playWhenReady
+        c.replaceMediaItem(index, resolveForPlay(t, !t.wantVideo).toMediaItem())
+        c.seekTo(index, pos)
+        c.playWhenReady = wasPlaying
     }
 
     fun next() { controller?.seekToNext() }
@@ -194,16 +226,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         search()
     }
 
-    fun download(track: Track) {
-        neon.downloads.download(track)
-        _message.value = "Mengunduh \"${track.title}\""
+    fun download(track: Track, kind: Kind) {
+        neon.downloads.download(track, kind)
+        _message.value = (if (kind == Kind.VIDEO) "Mengunduh video" else "Mengunduh audio") + " \"${track.title}\""
     }
 
-    fun clearDownloadError(track: Track) = neon.downloads.clearError(track.id)
+    fun retryDownload(track: Track, kind: Kind) {
+        neon.downloads.clearError(track, kind)
+        neon.downloads.download(track, kind)
+    }
 
-    fun deleteOffline(track: Track) {
-        neon.library.remove(track)
-        _message.value = "Dihapus dari offline"
+    fun deleteOffline(track: Track, kind: Kind) {
+        neon.downloads.library(kind).remove(track)
+        _message.value = if (kind == Kind.VIDEO) "Video dihapus" else "Audio dihapus"
     }
 
     // ---------- Musik di HP ----------

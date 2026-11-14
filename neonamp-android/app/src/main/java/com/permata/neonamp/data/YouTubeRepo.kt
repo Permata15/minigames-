@@ -10,6 +10,7 @@ import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.StreamType
+import org.schabi.newpipe.extractor.stream.VideoStream
 import org.schabi.newpipe.extractor.MediaFormat
 import java.util.concurrent.ConcurrentHashMap
 
@@ -18,8 +19,9 @@ object YouTubeRepo {
     private val yt get() = ServiceList.YouTube
 
     data class ResolvedAudio(val url: String, val format: MediaFormat?, val contentLength: Long)
+    data class ResolvedVideo(val url: String, val format: MediaFormat?, val contentLength: Long, val height: Int)
 
-    private data class Cached(val audio: ResolvedAudio, val at: Long)
+    private data class Cached(val info: StreamInfo, val at: Long)
     private val cache = ConcurrentHashMap<String, Cached>()
     private const val CACHE_MS = 3 * 60 * 60 * 1000L // URL googlevideo berlaku ~6 jam
 
@@ -59,18 +61,39 @@ object YouTubeRepo {
         )
     }
 
-    /** Blocking — dipanggil dari thread loader ExoPlayer / IO. */
-    fun resolveAudioBlocking(videoId: String): ResolvedAudio {
-        cache[videoId]?.let { if (System.currentTimeMillis() - it.at < CACHE_MS) return it.audio }
+    private fun infoBlocking(videoId: String): StreamInfo {
+        cache[videoId]?.let { if (System.currentTimeMillis() - it.at < CACHE_MS) return it.info }
         val info = StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=$videoId")
-        return remember(info) ?: error("Tidak ada stream audio untuk video ini")
+        remember(info)
+        return info
     }
 
-    private fun remember(info: StreamInfo): ResolvedAudio? {
-        val best = pickAudio(info.audioStreams) ?: return null
-        val audio = ResolvedAudio(best.content, best.format, best.itagItem?.contentLength ?: -1L)
-        cache[info.id] = Cached(audio, System.currentTimeMillis())
-        return audio
+    private fun remember(info: StreamInfo) {
+        cache[info.id] = Cached(info, System.currentTimeMillis())
+    }
+
+    /** Blocking — dipanggil dari thread loader ExoPlayer / IO. */
+    fun resolveAudioBlocking(videoId: String): ResolvedAudio {
+        val best = pickAudio(infoBlocking(videoId).audioStreams)
+            ?: error("Tidak ada stream audio untuk video ini")
+        return ResolvedAudio(best.content, best.format, best.itagItem?.contentLength ?: -1L)
+    }
+
+    /** Stream video TANPA suara (video-only), maks [maxHeight]p, utamakan H.264/MP4 agar ringan. */
+    fun resolveVideoBlocking(videoId: String, maxHeight: Int = 720): ResolvedVideo {
+        val streams = infoBlocking(videoId).videoOnlyStreams.filter {
+            it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.isUrl
+        }
+        fun score(v: VideoStream): Int {
+            val h = v.height
+            var s = if (h <= maxHeight) h * 10 else -h          // resolusi tertinggi yang ≤ batas
+            if (v.format == MediaFormat.MPEG_4) s += 3
+            if (v.codec?.startsWith("avc") == true) s += 5      // H.264: decode hardware hampir di semua HP
+            if (v.fps > 30) s -= 2                               // 30fps lebih hemat & mulus di HP biasa
+            return s
+        }
+        val best = streams.maxByOrNull(::score) ?: error("Tidak ada stream video untuk video ini")
+        return ResolvedVideo(best.content, best.format, best.itagItem?.contentLength ?: -1L, best.height)
     }
 
     private fun pickAudio(streams: List<AudioStream>): AudioStream? {

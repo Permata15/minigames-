@@ -20,6 +20,11 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.permata.neonamp.MainActivity
 import com.permata.neonamp.data.NetDownloader
 import com.permata.neonamp.data.YouTubeRepo
+import androidx.media3.datasource.DataSource
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import com.permata.neonamp.data.Track
 
 /**
  * Service pemutar di background (notifikasi, lock screen, tombol headset).
@@ -37,18 +42,19 @@ class PlaybackService : MediaSessionService() {
         val upstream = DefaultDataSource.Factory(this, http)
         val resolving = ResolvingDataSource.Factory(upstream) { spec: DataSpec ->
             val uri = spec.uri
-            if (uri.scheme == "yt") {
-                val audio = try {
-                    YouTubeRepo.resolveAudioBlocking(uri.host ?: "")
-                } catch (e: Exception) {
-                    throw java.io.IOException("Gagal mengambil audio YouTube: ${e.message}", e)
-                }
-                spec.withUri(android.net.Uri.parse(audio.url))
-            } else spec
+            when (uri.scheme) {
+                "yt" -> spec.withUri(android.net.Uri.parse(resolve("audio") {
+                    YouTubeRepo.resolveAudioBlocking(uri.host ?: "").url
+                }))
+                "ytv" -> spec.withUri(android.net.Uri.parse(resolve("video") {
+                    YouTubeRepo.resolveVideoBlocking(uri.host ?: "").url
+                }))
+                else -> spec
+            }
         }
 
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))
+            .setMediaSourceFactory(AvMediaSourceFactory(DefaultMediaSourceFactory(resolving), resolving))
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -86,6 +92,12 @@ class PlaybackService : MediaSessionService() {
             .build()
     }
 
+    private inline fun resolve(what: String, block: () -> String): String = try {
+        block()
+    } catch (e: Exception) {
+        throw java.io.IOException("Gagal mengambil $what YouTube: ${e.message}", e)
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -102,5 +114,25 @@ class PlaybackService : MediaSessionService() {
         }
         session = null
         super.onDestroy()
+    }
+}
+
+/**
+ * Video dan audio diputar dari sumber TERPISAH lalu digabung (MergingMediaSource):
+ * - stream: video-only ≤720p H.264 + audio m4a terbaik → mulai cepat, buffer ringan
+ * - offline: file video tanpa suara + file audio
+ * Sumber audio diletakkan pertama supaya metadata lagu (judul, lirik, dst.) tetap terbaca.
+ */
+@OptIn(UnstableApi::class)
+private class AvMediaSourceFactory(
+    private val base: DefaultMediaSourceFactory,
+    private val dataSource: DataSource.Factory,
+) : MediaSource.Factory by base {
+    override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+        val audio = base.createMediaSource(mediaItem)
+        val videoUri = Track.fromMediaItem(mediaItem)?.videoUri() ?: return audio
+        val video = ProgressiveMediaSource.Factory(dataSource)
+            .createMediaSource(MediaItem.fromUri(videoUri))
+        return MergingMediaSource(audio, video)
     }
 }

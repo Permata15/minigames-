@@ -85,6 +85,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.permata.neonamp.data.Source
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import com.permata.neonamp.data.DownloadManager
+import com.permata.neonamp.data.Kind
 import com.permata.neonamp.data.Track
 
 @Composable
@@ -120,7 +130,8 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
                 Header()
                 when (tab) {
                     0 -> SearchTab(vm, ui)
-                    1 -> OfflineTab(vm, ui)
+                    1 -> AudioTab(vm, ui)
+                    2 -> VideoTab(vm, ui)
                     else -> DeviceTab(vm, ui)
                 }
             }
@@ -138,6 +149,8 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
 
 @Composable
 private fun Header() {
+    var picker by remember { mutableStateOf(false) }
+    if (picker) ThemePicker(onDismiss = { picker = false })
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -153,6 +166,10 @@ private fun Header() {
             "//AMP", color = Neon.Text, fontSize = 26.sp, fontWeight = FontWeight.Light,
             fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
         )
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = { picker = true }) {
+            Icon(Icons.Rounded.Palette, "Ganti tema", tint = Neon.Cyan)
+        }
     }
 }
 
@@ -160,8 +177,9 @@ private fun Header() {
 private fun BottomNav(selected: Int, onSelect: (Int) -> Unit) {
     val items = listOf(
         Triple("Cari", Icons.Rounded.Search, 0),
-        Triple("Offline", Icons.Rounded.WifiOff, 1),
-        Triple("Di HP", Icons.Rounded.Smartphone, 2),
+        Triple("Audio", Icons.Rounded.MusicNote, 1),
+        Triple("Video", Icons.Rounded.VideoLibrary, 2),
+        Triple("Di HP", Icons.Rounded.Smartphone, 3),
     )
     NavigationBar(containerColor = Neon.Panel, tonalElevation = 0.dp) {
         items.forEach { (label, icon, i) ->
@@ -221,15 +239,17 @@ private fun SearchTab(vm: PlayerViewModel, ui: PlayerUi) {
     val results by vm.results.collectAsStateWithLifecycle()
     val searching by vm.searching.collectAsStateWithLifecycle()
     val downloads by vm.downloads.collectAsStateWithLifecycle()
-    val library by vm.library.collectAsStateWithLifecycle()
+    val audioLib by vm.audioLibrary.collectAsStateWithLifecycle()
+    val videoLib by vm.videoLibrary.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
-    val offlineIds = remember(library) { library.map { it.id }.toSet() }
+    val audioIds = remember(audioLib) { audioLib.map { it.id }.toSet() }
+    val videoIds = remember(videoLib) { videoLib.map { it.id }.toSet() }
 
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = query,
             onValueChange = { vm.query.value = it },
-            placeholder = { Text("Cari lagu di YouTube atau tempel link…", color = Neon.Dim) },
+            placeholder = { Text("Cari lagu / video YouTube atau tempel link…", color = Neon.Dim) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Neon.Cyan) },
             trailingIcon = {
                 if (query.isNotEmpty()) IconButton(onClick = { vm.query.value = "" }) {
@@ -258,35 +278,122 @@ private fun SearchTab(vm: PlayerViewModel, ui: PlayerUi) {
             )
         }
         if (results.isEmpty() && !searching) {
-            EmptyState(Icons.Rounded.Search, "Cari lagu favoritmu", "Putar langsung (online) atau unduh untuk didengar offline.")
+            EmptyState(
+                Icons.Rounded.Search, "Cari lagu & video favoritmu",
+                "Ketuk lagu untuk audio, ikon ▶ layar untuk video. Unduh audio atau video agar bisa diputar offline.",
+            )
         }
-        TrackList(results, ui) { index, track ->
+        TrackList(results) { index, track ->
+            val aState = downloads[DownloadManager.key(Kind.AUDIO, track.id)]
+            val vState = downloads[DownloadManager.key(Kind.VIDEO, track.id)]
             TrackRow(
                 track = track,
                 active = ui.track?.id == track.id,
                 onClick = { vm.playList(results, index) },
+                badges = {
+                    if (track.id in audioIds) Badge("AUDIO ✓", Neon.Lime)
+                    if (track.id in videoIds) Badge("VIDEO ✓", Neon.Lime)
+                    if (aState != null) Badge(progressLabel("AUDIO", aState), if (aState < 0) Neon.Magenta else Neon.Cyan)
+                    if (vState != null) Badge(progressLabel("VIDEO", vState), if (vState < 0) Neon.Magenta else Neon.Cyan)
+                },
             ) {
-                IconButton(onClick = { vm.addToQueue(track) }) {
-                    Icon(Icons.Rounded.PlaylistAdd, "Antrean", tint = Neon.Dim)
+                IconButton(onClick = { vm.playList(results, index, video = true) }) {
+                    Icon(Icons.Rounded.SmartDisplay, "Tonton video", tint = Neon.Magenta)
                 }
-                DownloadButton(
-                    progress = downloads[track.id],
-                    offline = track.id in offlineIds,
-                    onDownload = { vm.download(track) },
-                    onRetry = { vm.clearDownloadError(track); vm.download(track) },
+                TrackMenu(
+                    track = track,
+                    audioSaved = track.id in audioIds,
+                    videoSaved = track.id in videoIds,
+                    audioState = aState,
+                    videoState = vState,
+                    vm = vm,
                 )
             }
         }
     }
 }
 
+private fun progressLabel(kind: String, p: Float) = when {
+    p < 0f -> "$kind GAGAL"
+    p == 0f -> "$kind …"
+    else -> "$kind ${(p * 100).toInt()}%"
+}
+
 @Composable
-fun DownloadButton(progress: Float?, offline: Boolean, onDownload: () -> Unit, onRetry: () -> Unit) {
+private fun TrackMenu(
+    track: Track,
+    audioSaved: Boolean,
+    videoSaved: Boolean,
+    audioState: Float?,
+    videoState: Float?,
+    vm: PlayerViewModel,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        val busy = (audioState != null && audioState >= 0f) || (videoState != null && videoState >= 0f)
+        IconButton(onClick = { open = true }) {
+            if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Neon.Cyan, strokeWidth = 2.dp)
+            else Icon(Icons.Rounded.Download, "Unduh & lainnya", tint = Neon.Cyan)
+        }
+        DropdownMenu(open, onDismissRequest = { open = false }, containerColor = Neon.PanelHi) {
+            MenuRow(Icons.Rounded.PlaylistAdd, "Tambah ke antrean") { open = false; vm.addToQueue(track) }
+            MenuRow(
+                Icons.Rounded.MusicNote,
+                when {
+                    audioSaved -> "Audio sudah offline"
+                    audioState != null && audioState < 0 -> "Ulangi unduh audio"
+                    else -> "Unduh audio (ringan)"
+                },
+                enabled = !audioSaved && (audioState == null || audioState < 0),
+            ) {
+                open = false
+                if (audioState != null) vm.retryDownload(track, Kind.AUDIO) else vm.download(track, Kind.AUDIO)
+            }
+            MenuRow(
+                Icons.Rounded.VideoLibrary,
+                when {
+                    videoSaved -> "Video sudah offline"
+                    videoState != null && videoState < 0 -> "Ulangi unduh video"
+                    else -> "Unduh video 720p"
+                },
+                enabled = !videoSaved && (videoState == null || videoState < 0),
+            ) {
+                open = false
+                if (videoState != null) vm.retryDownload(track, Kind.VIDEO) else vm.download(track, Kind.VIDEO)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuRow(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label, color = if (enabled) Neon.Text else Neon.Dim) },
+        leadingIcon = { Icon(icon, null, tint = if (enabled) Neon.Cyan else Neon.Dim) },
+        onClick = onClick,
+        enabled = enabled,
+    )
+}
+
+@Composable
+fun Badge(text: String, color: Color) {
+    Text(
+        text, color = color, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .padding(end = 6.dp)
+            .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+    )
+}
+
+/** Tombol unduh kecil di layar Now Playing. */
+@Composable
+fun DownloadButton(progress: Float?, offline: Boolean, icon: ImageVector, onDownload: () -> Unit, onRetry: () -> Unit) {
     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
         when {
             offline -> Icon(Icons.Rounded.CheckCircle, "Tersimpan offline", tint = Neon.Lime)
             progress == null -> IconButton(onClick = onDownload) {
-                Icon(Icons.Rounded.Download, "Unduh", tint = Neon.Cyan)
+                Icon(icon, "Unduh", tint = Neon.Cyan)
             }
             progress < 0f -> IconButton(onClick = onRetry) {
                 Icon(Icons.Rounded.ErrorOutline, "Gagal, coba lagi", tint = Neon.Magenta)
@@ -300,23 +407,84 @@ fun DownloadButton(progress: Float?, offline: Boolean, onDownload: () -> Unit, o
     }
 }
 
-// ---------------- Tab: Offline ----------------
+// ---------------- Tab: Audio offline ----------------
 @Composable
-private fun OfflineTab(vm: PlayerViewModel, ui: PlayerUi) {
-    val library by vm.library.collectAsStateWithLifecycle()
+private fun AudioTab(vm: PlayerViewModel, ui: PlayerUi) {
+    val library by vm.audioLibrary.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize()) {
-        SectionBar("${library.size} lagu tersimpan", enabled = library.isNotEmpty(),
+        SectionBar("${library.size} audio offline", enabled = library.isNotEmpty(),
             onPlayAll = { vm.playList(library, 0) },
             onShuffle = { vm.playList(library.shuffled(), 0) })
         if (library.isEmpty()) {
-            EmptyState(Icons.Rounded.WifiOff, "Belum ada lagu offline", "Tekan ikon unduh di hasil pencarian YouTube.")
+            EmptyState(Icons.Rounded.MusicNote, "Belum ada audio offline", "Di tab Cari, ketuk ikon unduh → \"Unduh audio\".")
         }
-        TrackList(library, ui) { index, track ->
-            TrackRow(track, ui.track?.id == track.id, onClick = { vm.playList(library, index) }) {
-                IconButton(onClick = { vm.deleteOffline(track) }) {
+        TrackList(library) { index, track ->
+            TrackRow(track, ui.track?.id == track.id && ui.track?.wantVideo != true, onClick = { vm.playList(library, index) }) {
+                IconButton(onClick = { vm.deleteOffline(track, Kind.AUDIO) }) {
                     Icon(Icons.Rounded.Delete, "Hapus", tint = Neon.Dim)
                 }
             }
+        }
+    }
+}
+
+// ---------------- Tab: Video offline ----------------
+@Composable
+private fun VideoTab(vm: PlayerViewModel, ui: PlayerUi) {
+    val library by vm.videoLibrary.collectAsStateWithLifecycle()
+    Column(Modifier.fillMaxSize()) {
+        SectionBar("${library.size} video offline", enabled = library.isNotEmpty(),
+            onPlayAll = { vm.playList(library, 0, video = true) },
+            onShuffle = { vm.playList(library.shuffled(), 0, video = true) })
+        if (library.isEmpty()) {
+            EmptyState(Icons.Rounded.VideoLibrary, "Belum ada video offline", "Di tab Cari, ketuk ikon unduh → \"Unduh video\". Video & audio disimpan terpisah supaya pemutaran lebih mulus.")
+        }
+        LazyColumn(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            itemsIndexed(library, key = { _, t -> t.id }) { index, t ->
+                VideoCard(
+                    t, active = ui.track?.id == t.id && ui.track?.wantVideo == true,
+                    onClick = { vm.playList(library, index, video = true) },
+                    onAudioOnly = { vm.playList(library, index, video = false) },
+                    onDelete = { vm.deleteOffline(t, Kind.VIDEO) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoCard(t: Track, active: Boolean, onClick: () -> Unit, onAudioOnly: () -> Unit, onDelete: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Neon.panelGlow)
+            .border(1.dp, if (active) Neon.Cyan else Neon.Line, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+            Artwork(t.artworkUrl, null, Modifier.fillMaxSize(), corner = 0.dp)
+            Box(
+                Modifier.align(Alignment.Center).size(54.dp).clip(CircleShape).background(Neon.Bg.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.PlayArrow, null, tint = Neon.Cyan, modifier = Modifier.size(34.dp)) }
+            Text(
+                formatTime(t.durationMs), color = Neon.Text, fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                    .clip(RoundedCornerShape(4.dp)).background(Neon.Bg.copy(alpha = 0.75f)).padding(horizontal = 5.dp, vertical = 1.dp),
+            )
+        }
+        Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(t.title, color = if (active) Neon.Cyan else Neon.Text, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                Text(t.artist, color = Neon.Dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(onClick = onAudioOnly) { Icon(Icons.Rounded.Headphones, "Putar audio saja", tint = Neon.Dim) }
+            IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, "Hapus", tint = Neon.Dim) }
         }
     }
 }
@@ -338,7 +506,7 @@ private fun DeviceTab(vm: PlayerViewModel, ui: PlayerUi) {
         if (tracks.isEmpty()) {
             EmptyState(Icons.Rounded.LibraryMusic, "Musik di HP", "Tekan \"Pindai\" untuk menampilkan lagu MP3/FLAC/M4A yang ada di perangkat.")
         }
-        TrackList(tracks, ui) { index, track ->
+        TrackList(tracks) { index, track ->
             TrackRow(track, ui.track?.id == track.id, onClick = { vm.playList(tracks, index) }) {}
         }
     }
@@ -371,7 +539,6 @@ private fun SectionBar(
 @Composable
 private fun TrackList(
     tracks: List<Track>,
-    ui: PlayerUi,
     row: @Composable (Int, Track) -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(vertical = 8.dp), modifier = Modifier.fillMaxSize()) {
@@ -384,6 +551,7 @@ fun TrackRow(
     track: Track,
     active: Boolean,
     onClick: () -> Unit,
+    badges: @Composable () -> Unit = {},
     trailing: @Composable () -> Unit,
 ) {
     Row(
@@ -406,6 +574,7 @@ fun TrackRow(
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SourceTag(track)
+                badges()
                 Text(
                     listOf(track.artist, formatTime(track.durationMs)).filter { it.isNotBlank() }.joinToString(" • "),
                     color = Neon.Dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -420,6 +589,7 @@ fun TrackRow(
 fun SourceTag(track: Track) {
     val (label, color) = when {
         track.source == Source.LOCAL -> "HP" to Neon.Violet
+        track.wantVideo -> "VIDEO" to Neon.Magenta
         track.isOffline -> "OFFLINE" to Neon.Lime
         else -> "YT" to Neon.Magenta
     }

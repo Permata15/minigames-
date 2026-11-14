@@ -69,20 +69,34 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import com.permata.neonamp.data.LyricLine
 import com.permata.neonamp.data.Source
+import com.permata.neonamp.data.DownloadManager
+import com.permata.neonamp.data.Kind
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.VideoLibrary
 
 @Composable
 fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val downloads by vm.downloads.collectAsStateWithLifecycle()
-    val library by vm.library.collectAsStateWithLifecycle()
+    val audioLib by vm.audioLibrary.collectAsStateWithLifecycle()
+    val videoLib by vm.videoLibrary.collectAsStateWithLifecycle()
+    val player by vm.player.collectAsStateWithLifecycle()
     val track = ui.track ?: return
-    var mode by rememberSaveable { mutableIntStateOf(0) } // 0 visual, 1 lirik, 2 antrean
+    var mode by rememberSaveable { mutableIntStateOf(0) } // 0 visual/video, 1 lirik, 2 antrean
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
+
+    if (fullscreen && track.wantVideo) {
+        FullscreenVideo(vm, ui, player, onExit = { fullscreen = false })
+        return
+    }
 
     Column(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF0D0B22), Neon.Bg, Neon.Bg)))
+            .background(Brush.verticalGradient(listOf(Neon.BgTop, Neon.Bg, Neon.Bg)))
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 18.dp)
@@ -91,15 +105,27 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Tutup", tint = Neon.Text) }
             Text(
-                "NOW PLAYING", color = Neon.Dim, fontFamily = FontFamily.Monospace, letterSpacing = 4.sp,
+                if (track.wantVideo) "NOW WATCHING" else "NOW PLAYING",
+                color = Neon.Dim, fontFamily = FontFamily.Monospace, letterSpacing = 4.sp,
                 fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
             )
-            val offline = track.isOffline || library.any { it.id == track.id }
             if (track.source == Source.YOUTUBE) {
+                // Pindah video ⇄ audio saja tanpa mengulang lagu
+                IconButton(onClick = vm::toggleVideoMode) {
+                    Icon(
+                        if (track.wantVideo) Icons.Rounded.Headphones else Icons.Rounded.SmartDisplay,
+                        if (track.wantVideo) "Audio saja" else "Tonton video",
+                        tint = Neon.Magenta,
+                    )
+                }
+                val kind = if (track.wantVideo) Kind.VIDEO else Kind.AUDIO
+                val lib = if (kind == Kind.VIDEO) videoLib else audioLib
                 DownloadButton(
-                    progress = downloads[track.id], offline = offline,
-                    onDownload = { vm.download(track) },
-                    onRetry = { vm.clearDownloadError(track); vm.download(track) },
+                    progress = downloads[DownloadManager.key(kind, track.id)],
+                    offline = lib.any { it.id == track.id },
+                    icon = if (kind == Kind.VIDEO) Icons.Rounded.VideoLibrary else Icons.Rounded.Download,
+                    onDownload = { vm.download(track, kind) },
+                    onRetry = { vm.retryDownload(track, kind) },
                 )
             } else Spacer(Modifier.size(48.dp))
         }
@@ -107,12 +133,17 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         LcdPanel(ui)
 
         Spacer(Modifier.height(14.dp))
-        ModeSwitch(mode) { mode = it }
+        ModeSwitch(listOf(if (track.wantVideo) "VIDEO" else "VISUAL", "LIRIK", "ANTREAN"), mode) { mode = it }
         Spacer(Modifier.height(10.dp))
 
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             when (mode) {
-                0 -> {
+                0 -> if (track.wantVideo) {
+                    InlineVideo(
+                        player, ui.buffering, onFullscreen = { fullscreen = true },
+                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                    )
+                } else {
                     val scale by animateFloatAsState(if (ui.isPlaying) 1f else 0.92f, label = "art")
                     Artwork(
                         track.artworkUrl, 280.dp,
@@ -147,7 +178,7 @@ private fun LcdPanel(ui: PlayerUi) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFF05060C))
+            .background(Neon.Lcd)
             .border(1.dp, Brush.linearGradient(listOf(Neon.Cyan.copy(0.6f), Neon.Magenta.copy(0.6f))), RoundedCornerShape(18.dp))
             .padding(14.dp)
     ) {
@@ -164,10 +195,12 @@ private fun LcdPanel(ui: PlayerUi) {
             Column(horizontalAlignment = Alignment.End) {
                 val src = when {
                     t.source == Source.LOCAL -> "LOCAL"
+                    t.wantVideo && t.videoPath != null -> "VID·OFF"
+                    t.wantVideo -> "VIDEO"
                     t.isOffline -> "OFFLINE"
                     else -> "STREAM"
                 }
-                LcdTag(src, if (src == "STREAM") Neon.Magenta else Neon.Lime)
+                LcdTag(src, if (src == "STREAM" || src == "VIDEO") Neon.Magenta else Neon.Lime)
                 Spacer(Modifier.height(4.dp))
                 LcdTag(if (ui.shuffle) "SHUF" else "SEQ", Neon.Violet)
                 Spacer(Modifier.height(4.dp))
@@ -194,7 +227,7 @@ private fun LcdTag(text: String, color: Color) {
 }
 
 @Composable
-private fun ModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
+private fun ModeSwitch(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -203,7 +236,7 @@ private fun ModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
             .border(1.dp, Neon.Line, RoundedCornerShape(50))
             .padding(4.dp)
     ) {
-        listOf("VISUAL", "LIRIK", "ANTREAN").forEachIndexed { i, label ->
+        labels.forEachIndexed { i, label ->
             val bg by animateColorAsState(if (i == selected) Neon.Cyan.copy(alpha = 0.16f) else Color.Transparent, label = "m")
             Text(
                 label,

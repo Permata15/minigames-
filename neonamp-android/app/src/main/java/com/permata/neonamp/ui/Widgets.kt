@@ -116,10 +116,10 @@ fun MiniWave(playing: Boolean, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Artwork(url: String?, size: Dp, modifier: Modifier = Modifier, corner: Dp = 12.dp) {
+fun Artwork(url: String?, size: Dp?, modifier: Modifier = Modifier, corner: Dp = 12.dp) {
     Box(
         modifier
-            .size(size)
+            .then(if (size != null) Modifier.size(size) else Modifier)
             .clip(RoundedCornerShape(corner))
             .background(Brush.linearGradient(listOf(Neon.PanelHi, Neon.Panel)))
             .border(1.dp, Neon.Line, RoundedCornerShape(corner)),

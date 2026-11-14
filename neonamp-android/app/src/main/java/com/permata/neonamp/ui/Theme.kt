@@ -1,25 +1,106 @@
 package com.permata.neonamp.ui
 
+import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-object Neon {
-    val Bg = Color(0xFF07080F)
-    val Panel = Color(0xFF10121F)
-    val PanelHi = Color(0xFF181B2E)
-    val Line = Color(0xFF262A45)
-    val Cyan = Color(0xFF00F0FF)
-    val Magenta = Color(0xFFFF2BD6)
-    val Violet = Color(0xFFB14CFF)
-    val Lime = Color(0xFF7CFF6B)
-    val Text = Color(0xFFE6F1FF)
-    val Dim = Color(0xFF7A86A8)
+/** Satu set warna tema. primary/secondary/tertiary = tiga warna gradasi utama. */
+data class Palette(
+    val key: String,
+    val name: String,
+    val tagline: String,
+    val bg: Color,
+    val bgTop: Color,
+    val panel: Color,
+    val panelHi: Color,
+    val line: Color,
+    val lcd: Color,
+    val primary: Color,
+    val secondary: Color,
+    val tertiary: Color,
+    val ok: Color,
+    val text: Color,
+    val dim: Color,
+)
 
-    val accent = Brush.horizontalGradient(listOf(Cyan, Violet, Magenta))
-    val panelGlow = Brush.verticalGradient(listOf(PanelHi, Panel))
+val Palettes = listOf(
+    Palette(
+        "neon", "Neon Cyber", "Cyan & magenta futuristik",
+        bg = Color(0xFF07080F), bgTop = Color(0xFF0D0B22), panel = Color(0xFF10121F),
+        panelHi = Color(0xFF181B2E), line = Color(0xFF262A45), lcd = Color(0xFF05060C),
+        primary = Color(0xFF00F0FF), secondary = Color(0xFFFF2BD6), tertiary = Color(0xFFB14CFF),
+        ok = Color(0xFF7CFF6B), text = Color(0xFFE6F1FF), dim = Color(0xFF7A86A8),
+    ),
+    Palette(
+        "synthwave", "Synthwave Sunset", "Senja retro 80-an",
+        bg = Color(0xFF120818), bgTop = Color(0xFF2A0B2E), panel = Color(0xFF1E0F27),
+        panelHi = Color(0xFF2A1535), line = Color(0xFF3D2350), lcd = Color(0xFF0B0410),
+        primary = Color(0xFFFF9E3D), secondary = Color(0xFFFF3D81), tertiary = Color(0xFF9D4DFF),
+        ok = Color(0xFFFFE14D), text = Color(0xFFFFEFF6), dim = Color(0xFFA88AA6),
+    ),
+    Palette(
+        "aurora", "Aurora", "Hijau-biru cahaya kutub",
+        bg = Color(0xFF051012), bgTop = Color(0xFF08221F), panel = Color(0xFF0B1B1E),
+        panelHi = Color(0xFF12282C), line = Color(0xFF1E3D42), lcd = Color(0xFF030A0B),
+        primary = Color(0xFF3DFFB4), secondary = Color(0xFF4DA3FF), tertiary = Color(0xFF9B7BFF),
+        ok = Color(0xFFC6FF4D), text = Color(0xFFE6FFF8), dim = Color(0xFF7FA5A0),
+    ),
+    Palette(
+        "classic", "Winamp Classic", "LCD hijau & amber klasik",
+        bg = Color(0xFF16161F), bgTop = Color(0xFF23233A), panel = Color(0xFF232336),
+        panelHi = Color(0xFF2E2E48), line = Color(0xFF45456A), lcd = Color(0xFF000000),
+        primary = Color(0xFF00E639), secondary = Color(0xFFFFB000), tertiary = Color(0xFF7FE0FF),
+        ok = Color(0xFF00FF66), text = Color(0xFFE8E8F0), dim = Color(0xFF8A8AA8),
+    ),
+    Palette(
+        "sakura", "Sakura Night", "Pink lembut & lavender",
+        bg = Color(0xFF140C12), bgTop = Color(0xFF2B1222), panel = Color(0xFF21141D),
+        panelHi = Color(0xFF2D1B28), line = Color(0xFF44283B), lcd = Color(0xFF0B0609),
+        primary = Color(0xFFFF8FC7), secondary = Color(0xFFFFB38A), tertiary = Color(0xFFC7A3FF),
+        ok = Color(0xFF9CFFD9), text = Color(0xFFFFF0F7), dim = Color(0xFFB08CA3),
+    ),
+)
+
+/**
+ * Warna aktif. Disimpan sebagai snapshot state, jadi semua layar & gambar
+ * otomatis diperbarui saat tema diganti.
+ */
+object Neon {
+    var palette by mutableStateOf(Palettes[0])
+
+    val Bg get() = palette.bg
+    val BgTop get() = palette.bgTop
+    val Panel get() = palette.panel
+    val PanelHi get() = palette.panelHi
+    val Line get() = palette.line
+    val Lcd get() = palette.lcd
+    val Cyan get() = palette.primary
+    val Magenta get() = palette.secondary
+    val Violet get() = palette.tertiary
+    val Lime get() = palette.ok
+    val Text get() = palette.text
+    val Dim get() = palette.dim
+
+    val accent get() = Brush.horizontalGradient(listOf(Cyan, Violet, Magenta))
+    val panelGlow get() = Brush.verticalGradient(listOf(PanelHi, Panel))
+
+    private const val PREF = "neonamp_prefs"
+
+    fun load(context: Context) {
+        val key = context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString("theme", null)
+        Palettes.firstOrNull { it.key == key }?.let { palette = it }
+    }
+
+    fun select(context: Context, p: Palette) {
+        palette = p
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString("theme", p.key).apply()
+    }
 }
 
 @Composable
@@ -32,6 +113,8 @@ fun NeonAmpTheme(content: @Composable () -> Unit) {
             background = Neon.Bg,
             surface = Neon.Panel,
             surfaceVariant = Neon.PanelHi,
+            surfaceContainer = Neon.Panel,
+            surfaceContainerHigh = Neon.PanelHi,
             onPrimary = Neon.Bg,
             onBackground = Neon.Text,
             onSurface = Neon.Text,

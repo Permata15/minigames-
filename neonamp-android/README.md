@@ -2,6 +2,10 @@
 
 Fitur:
 - **Cari & putar lagu dari YouTube** (streaming online) — tanpa API key, memakai NewPipeExtractor. Bisa juga tempel/bagikan link YouTube ke aplikasi.
+- **Tonton video YouTube** di dalam aplikasi (inline 16:9 atau layar penuh landscape), bisa pindah video ⇄ audio saja tanpa mengulang lagu.
+- **Video & audio dipisah**: video-only ≤720p H.264 + audio m4a di-stream/disimpan sebagai file terpisah lalu digabung saat diputar — lebih cepat mulai, ringan, dan mulus.
+- **Unduh video offline** (tab **Video**) dan **audio offline** (tab **Audio**) secara terpisah.
+- **5 mode tampilan**: Neon Cyber, Synthwave Sunset, Aurora, Winamp Classic, Sakura Night (ikon palet di kanan atas).
 - **Unduh untuk offline** — audio (m4a), sampul, dan lirik disimpan di penyimpanan aplikasi; tab **Offline**.
 - **Musik di HP** — pindai MP3/FLAC/M4A yang sudah ada di perangkat (tab **Di HP**).
 - **Lirik sinkron** (berjalan mengikuti lagu, ketuk baris untuk lompat) dari LRCLIB, ikut tersimpan saat diunduh.

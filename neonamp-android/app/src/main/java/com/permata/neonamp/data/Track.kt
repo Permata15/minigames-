@@ -21,7 +21,12 @@ data class Track(
     val artworkUrl: String?,
     val source: Source,
     val pageUrl: String? = null,
+    /** File audio (offline) atau content:// (musik HP). */
     val localPath: String? = null,
+    /** File video tanpa suara (offline). Audio-nya tetap di [localPath]. */
+    val videoPath: String? = null,
+    /** Putar dengan gambar video. Video & audio di-stream/disimpan terpisah lalu digabung saat diputar. */
+    val wantVideo: Boolean = false,
 ) {
     val videoId: String? get() = if (source == Source.YOUTUBE) id.removePrefix("yt:") else null
     val isOffline: Boolean get() = localPath != null
@@ -31,6 +36,14 @@ data class Track(
         localPath != null && localPath.startsWith("content://") -> localPath.toUri()
         localPath != null -> Uri.fromFile(java.io.File(localPath))
         else -> "yt://$videoId".toUri()
+    }
+
+    /** URI video (tanpa suara) yang digabung dengan [playUri], atau null untuk mode audio saja. */
+    fun videoUri(): Uri? = when {
+        !wantVideo -> null
+        videoPath != null -> Uri.fromFile(java.io.File(videoPath))
+        videoId != null -> "ytv://$videoId".toUri()
+        else -> null
     }
 
     fun toMediaItem(): MediaItem {
@@ -43,7 +56,7 @@ data class Track(
             .build()
         val uri = playUri()
         return MediaItem.Builder()
-            .setMediaId(id)
+            .setMediaId(if (wantVideo) "$id#video" else id)
             .setUri(uri)
             .setMediaMetadata(meta)
             .setRequestMetadata(
@@ -61,6 +74,8 @@ data class Track(
         put("source", source.name)
         put("pageUrl", pageUrl ?: "")
         put("localPath", localPath ?: "")
+        put("videoPath", videoPath ?: "")
+        put("wantVideo", wantVideo)
     }
 
     companion object {
@@ -75,6 +90,8 @@ data class Track(
             source = Source.valueOf(o.optString("source", "YOUTUBE")),
             pageUrl = o.optString("pageUrl").ifBlank { null },
             localPath = o.optString("localPath").ifBlank { null },
+            videoPath = o.optString("videoPath").ifBlank { null },
+            wantVideo = o.optBoolean("wantVideo", false),
         )
 
         fun fromMediaItem(item: MediaItem?): Track? {
