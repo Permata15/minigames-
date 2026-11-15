@@ -1,5 +1,9 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>100 Hal yang Ingin Aku Tahu tentang Sains</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:ital,wght@0,400;0,600;0,800;1,400&display=swap">
 <style>
 /* Layout: sampul berwarna → pengantar → daftar isi bab → bab-bab berisi kartu tanya-jawab bernomor 1–100 → daftar pustaka */
@@ -17,6 +21,11 @@
   --bg:#111827; --card:#1A2336; --fg:#E9EFF9; --muted:#A6B2C8; --line:#2C3850; --tile:#EEF3FA;
   --c1:#FF7A83; --c2:#FFA64D; --c3:#5BCB8A; --c4:#5AB8EC; --c5:#9C90FF; --c6:#F27BBB; --c7:#3FCFC2; color-scheme:dark}
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0}
+img,svg{max-width:100%}
+[hidden]{display:none!important}
+.chapter{scroll-margin-top:70px}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6}
 .wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
@@ -132,6 +141,8 @@ footer .wrap{padding-block:24px 40px;color:var(--muted);font-size:14px;display:f
 }
 </style>
 
+</head>
+<body>
 <header class="cover">
   <div class="wrap">
     <div>
@@ -479,3 +490,6 @@ cari.addEventListener("input",()=>{
   document.getElementById("kosong").hidden=total>0;
 });
 </script>
+
+</body>
+</html>
