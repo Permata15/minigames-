@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Lembar Gulir</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+<style>
+/* Layout: app shell = tab bar / vertical snap feed of book leaves / bottom nav. Each swipe turns exactly one page. */
+:root {
+  --ground: #d6d3ca;      /* the desk behind the pages */
+  --chrome: #f3f2ed;
+  --chrome-fg: #1b1d19;
+  --muted: #676a61;
+  --line: #d0cdc3;
+  --accent: #1b6a57;      /* ribbon / bookmark green */
+  --accent-fg: #ffffff;
+  --heart: #d03a4e;
+  --paper: #fbfaf5;
+  --ink: #23241f;
+  --ink-soft: #7b7b71;
+  --paper-edge: #e5e1d6;
+  --scrim: rgba(18, 20, 16, .45);
+  --f-read: 'Literata', Georgia, 'Times New Roman', serif;
+  --f-ui: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs: 19px;
+  --lh: 1.62;
+  --rail-pad: 0px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0c0d0b; --chrome: #141613; --chrome-fg: #ebeae3; --muted: #9b9d93; --line: #2a2d27;
+    --accent: #4fb89b; --accent-fg: #062019; --heart: #ff5d71;
+    --paper: #1b1c19; --ink: #dad6cb; --ink-soft: #8e8c81; --paper-edge: #2c2d28; --scrim: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0c0d0b; --chrome: #141613; --chrome-fg: #ebeae3; --muted: #9b9d93; --line: #2a2d27;
+  --accent: #4fb89b; --accent-fg: #062019; --heart: #ff5d71;
+  --paper: #1b1c19; --ink: #dad6cb; --ink-soft: #8e8c81; --paper-edge: #2c2d28; --scrim: rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+/* Reader paper themes chosen inside the app */
+#app[data-paper="kertas"] { --paper: #fbfaf5; --ink: #23241f; --ink-soft: #7b7b71; --paper-edge: #e5e1d6; }
+#app[data-paper="sepia"]  { --paper: #f1e5cd; --ink: #3a2d1f; --ink-soft: #8a7356; --paper-edge: #dccaa8; }
+#app[data-paper="malam"]  { --paper: #1b1c19; --ink: #dad6cb; --ink-soft: #8e8c81; --paper-edge: #2c2d28; }
+#app[data-font="sans"] { --f-read: 'Bricolage Grotesque', system-ui, sans-serif; }
+@media (max-width: 759px) { :root { --rail-pad: 46px; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { height: 100%; }
+body { height: 100%; margin: 0; overflow: hidden; background: var(--ground); color: var(--chrome-fg); font-family: var(--f-ui); -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg { display: block; }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+
+/* Top bar */
+.topbar { flex: none; position: relative; height: 50px; display: flex; align-items: center; justify-content: center; background: var(--chrome); border-bottom: 1px solid var(--line); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); z-index: 6; }
+.brand { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); font-weight: 700; font-size: 17px; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+.brand i { width: 14px; height: 18px; background: var(--accent); clip-path: polygon(0 0,100% 0,100% 100%,50% 76%,0 100%); display: block; }
+.tabs { display: flex; gap: 22px; }
+.tab { font-size: 15px; font-weight: 500; color: var(--muted); padding: 13px 2px; position: relative; }
+.tab[aria-selected="true"] { color: var(--chrome-fg); font-weight: 700; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 25%; right: 25%; bottom: 6px; height: 2.5px; border-radius: 2px; background: var(--chrome-fg); }
+.topprog { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--accent); width: 0; transition: width .25s ease; }
+@media (max-width: 520px) { .brand span { display: none; } }
+
+/* Main stage */
+main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.scroller { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; }
+.scroller::-webkit-scrollbar { display: none; }
+.measure { position: absolute; inset: 0; visibility: hidden; pointer-events: none; overflow: hidden; z-index: -1; }
+
+.page { height: 100%; position: relative; display: flex; justify-content: center; scroll-snap-align: start; scroll-snap-stop: always; background: var(--ground); }
+.sheet { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); padding: 16px max(22px, env(safe-area-inset-right, 0px)) 12px max(22px, env(safe-area-inset-left, 0px)); transform-origin: 50% 0; box-shadow: 0 -14px 24px -16px rgba(0,0,0,.45); }
+.sheet::after { content: ""; position: absolute; inset: 0; background: #000; opacity: var(--shade, 0); pointer-events: none; border-radius: inherit; }
+@media (min-width: 720px) {
+  .page { padding-block: 18px; }
+  .sheet { width: min(100% - 32px, 40rem); padding: 26px 46px 16px 54px; border-radius: 3px 10px 10px 3px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 18px 40px -18px rgba(0,0,0,.4); }
+  .sheet::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 26px; border-radius: 3px 0 0 3px; background: linear-gradient(90deg, rgba(0,0,0,.13), rgba(0,0,0,0)); pointer-events: none; }
+}
+.ribbon { position: absolute; top: -1px; right: 30px; width: 16px; height: 58px; background: var(--accent); clip-path: polygon(0 0,100% 0,100% 100%,50% 80%,0 100%); transform: scaleY(0); transform-origin: top; transition: transform .3s cubic-bezier(.3,1.4,.5,1); z-index: 1; }
+.sheet.marked .ribbon { transform: scaleY(1); }
+@media (max-width: 759px) { .ribbon { right: 70px; } }
+
+.runhead { flex: none; display: flex; justify-content: space-between; gap: 16px; font: 500 10.5px/1.2 var(--f-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); padding-bottom: 11px; border-bottom: 1px solid var(--paper-edge); margin-bottom: 16px; padding-right: var(--rail-pad); }
+.runhead span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.runhead span:last-child { text-align: right; }
+
+.text { flex: 1; min-height: 0; overflow: hidden; font-family: var(--f-read); font-size: var(--fs); line-height: var(--lh); text-align: justify; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; padding-right: var(--rail-pad); font-optical-sizing: auto; }
+.text p { margin: 0; text-indent: 1.4em; }
+.text p.cont { text-indent: 0; }
+.text p.brk { text-align-last: justify; }
+.text h2 { margin: 0; padding: .5em 0 .85em; font: 600 1.32em/1.22 var(--f-read); text-align: left; text-wrap: balance; letter-spacing: -.01em; hyphens: manual; }
+.text h2 + p { text-indent: 0; }
+.text h2 + p::first-letter { float: left; font-size: 3.15em; line-height: .86; padding: .07em .09em 0 0; font-weight: 600; color: var(--accent); }
+.text p.sep { text-indent: 0; text-align: center; color: var(--ink-soft); padding: .4em 0; text-align-last: center; }
+.text.fade { -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); mask-image: linear-gradient(to bottom, #000 78%, transparent); }
+
+.foot { flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: 8px; padding-top: 10px; font: 400 11.5px/1.2 var(--f-ui); color: var(--ink-soft); font-variant-numeric: tabular-nums; padding-right: var(--rail-pad); }
+.foot .pn { font: italic 400 14px/1 var(--f-read); color: var(--ink); }
+.foot span:last-child { text-align: right; }
+
+/* Feed excerpt variant */
+.fhead { flex: none; display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--paper-edge); padding-right: var(--rail-pad); }
+.cover { flex: none; width: 34px; height: 46px; border-radius: 2px 4px 4px 2px; background: var(--c); color: #fff; display: grid; place-items: center; font: 600 17px/1 var(--f-read); box-shadow: inset 3px 0 0 rgba(0,0,0,.18); }
+.fmeta { min-width: 0; display: grid; gap: 3px; }
+.fmeta b { font: 700 15px/1.2 var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.fmeta small { font-size: 12px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcta { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; padding-right: var(--rail-pad); flex-wrap: wrap; }
+.fcta small { font-size: 12px; color: var(--ink-soft); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 999px; font-weight: 600; font-size: 14px; background: var(--accent); color: var(--accent-fg); }
+.btn.ghost { background: transparent; color: var(--chrome-fg); border: 1px solid var(--line); }
+.btn.danger { background: var(--heart); color: #fff; }
+.btn.small { min-height: 34px; padding: 0 13px; font-size: 13px; }
+
+/* Action rail */
+.rail { position: absolute; right: max(6px, env(safe-area-inset-right, 0px)); bottom: 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 5; transition: opacity .25s ease, transform .25s ease; }
+@media (min-width: 760px) { .rail { right: max(14px, calc((100% - 40rem) / 2 - 64px)); } }
+#app.immersive .rail { opacity: 0; transform: translateX(12px); pointer-events: none; }
+.ract { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 500; color: var(--muted); }
+.ract .ic { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--chrome); color: var(--chrome-fg); border: 1px solid var(--line); box-shadow: 0 4px 14px -6px rgba(0,0,0,.35); transition: transform .15s ease; }
+.ract:active .ic { transform: scale(.9); }
+.ract .ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ract .aa { font: 600 16px/1 var(--f-read); }
+.ract.on .ic { color: var(--heart); }
+.ract.on .ic svg { fill: currentColor; }
+.ract.mk.on .ic { color: var(--accent); }
+.ract .cover { width: 38px; height: 50px; font-size: 18px; border: 2px solid var(--chrome); }
+
+/* Bottom nav */
+.nav { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; background: var(--chrome); border-top: 1px solid var(--line); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); height: 58px; z-index: 6; }
+.nb { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 500; color: var(--muted); padding: 6px 0; }
+.nb svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.nb[aria-current="true"] { color: var(--chrome-fg); }
+.nb.plus span.pill { width: 48px; height: 32px; border-radius: 10px; background: var(--chrome-fg); color: var(--chrome); display: grid; place-items: center; box-shadow: -3px 0 0 var(--accent), 3px 0 0 var(--heart); }
+.nb.plus svg { stroke-width: 2.4; }
+
+/* Panels (Rak, Simpanan) */
+.panel { position: absolute; inset: 0; overflow-y: auto; background: var(--chrome); padding-block: 22px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); z-index: 4; }
+.panel-in { max-width: 56rem; margin: 0 auto; display: grid; gap: 18px; }
+.panel h1 { margin: 0; font: 700 26px/1.1 var(--f-ui); letter-spacing: -.02em; text-wrap: balance; }
+.panel .sub { margin: -10px 0 0; color: var(--muted); font-size: 14px; }
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 22px 18px; }
+.book { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.bcover { aspect-ratio: 2 / 3; max-width: 100%; border-radius: 3px 8px 8px 3px; background: var(--c); color: #fff; padding: 14px 12px 12px 18px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; position: relative; overflow: hidden; box-shadow: 0 10px 22px -12px rgba(0,0,0,.55), inset 5px 0 0 rgba(0,0,0,.2); }
+.bcover::after { content: ""; position: absolute; left: 9px; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.22); }
+.bcover b { font: 600 17px/1.18 var(--f-read); text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.bcover small { font-size: 11.5px; opacity: .85; letter-spacing: .04em; }
+.bcover .tag { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: rgba(255,255,255,.2); padding: 3px 7px; border-radius: 99px; }
+.bar { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.binfo { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bact { display: flex; gap: 8px; flex-wrap: wrap; }
+.addcard { aspect-ratio: 2 / 3; max-width: 100%; border: 1.5px dashed var(--line); border-radius: 3px 8px 8px 3px; display: grid; place-items: center; align-content: center; gap: 8px; color: var(--muted); font-weight: 600; font-size: 14px; }
+.addcard svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+.quotes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
+.quote { background: var(--paper); color: var(--ink); border: 1px solid var(--paper-edge); border-radius: 6px; padding: 18px 18px 14px; display: grid; gap: 12px; min-width: 0; }
+.quote blockquote { margin: 0; font: 400 16px/1.6 var(--f-read); display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
+.quote .qm { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
+.empty { text-align: center; color: var(--muted); padding: 40px 10px; display: grid; gap: 14px; justify-items: center; }
+.empty b { color: var(--chrome-fg); font-size: 17px; }
+
+/* Empty reader page */
+.blank { margin: auto; text-align: center; display: grid; gap: 14px; justify-items: center; max-width: 22rem; padding: 0 12px; }
+.blank h2 { margin: 0; font: 600 24px/1.2 var(--f-read); text-wrap: balance; }
+.blank p { margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.5; }
+
+/* Modal sheets */
+.modal { position: fixed; inset: 0; z-index: 20; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; animation: fadein .18s ease; }
+.msheet { width: 100%; max-width: 34rem; max-height: 88%; overflow-y: auto; background: var(--chrome); color: var(--chrome-fg); border-radius: 18px 18px 0 0; padding-block: 10px calc(22px + env(safe-area-inset-bottom, 0px)); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; animation: up .24s cubic-bezier(.2,.9,.3,1); }
+.grab { width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto; }
+.msheet h3 { margin: 0; font: 700 19px/1.2 var(--f-ui); }
+.mrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+@keyframes up { from { transform: translateY(40px); opacity: .4; } }
+@keyframes fadein { from { opacity: 0; } }
+.drop { border: 1.5px dashed var(--line); border-radius: 14px; padding: 26px 16px; text-align: center; display: grid; gap: 8px; justify-items: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.drop svg { width: 34px; height: 34px; fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.drop b { font-size: 15px; }
+.drop small { color: var(--muted); font-size: 12.5px; }
+.fmts { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.fmts span { font: 600 11px/1 var(--f-ui); letter-spacing: .06em; padding: 5px 8px; border-radius: 6px; background: var(--ground); color: var(--chrome-fg); }
+.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.field input, .field textarea { font: 400 15px/1.45 var(--f-ui); color: var(--chrome-fg); background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+.field textarea { min-height: 120px; resize: vertical; font-family: var(--f-read); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .two { grid-template-columns: 1fr; } }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.seg button { padding: 10px 6px; border-radius: 10px; border: 1px solid var(--line); font-size: 13px; font-weight: 500; display: grid; gap: 6px; justify-items: center; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
+.swatch { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); }
+.range { display: flex; align-items: center; gap: 12px; }
+.range input { flex: 1; accent-color: var(--accent); }
+.range output { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+.toc { display: grid; gap: 2px; }
+.toc button { display: flex; justify-content: space-between; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--line); text-align: left; font-size: 14.5px; }
+.toc button span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toc button span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.toc button.cur { color: var(--accent); font-weight: 700; }
+
+/* Busy + toast + heart */
+.busy { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--ground) 70%, transparent); z-index: 9; }
+.busy-card { background: var(--chrome); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; display: flex; align-items: center; gap: 14px; font-size: 14px; max-width: calc(100% - 32px); }
+.spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); animation: rot .8s linear infinite; flex: none; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--chrome-fg); color: var(--chrome); padding: 10px 16px; border-radius: 99px; font-size: 13.5px; font-weight: 500; z-index: 30; max-width: calc(100% - 32px); text-align: center; animation: up .2s ease; }
+.burst { position: fixed; width: 84px; height: 84px; margin: -42px 0 0 -42px; pointer-events: none; z-index: 15; color: var(--heart); animation: burst .75s ease-out forwards; }
+.burst svg { width: 100%; height: 100%; fill: currentColor; filter: drop-shadow(0 6px 12px rgba(0,0,0,.25)); }
+@keyframes burst { 0% { transform: scale(.3) rotate(-12deg); opacity: 0; } 25% { transform: scale(1.1) rotate(-6deg); opacity: 1; } 60% { transform: scale(1) rotate(-6deg); opacity: 1; } 100% { transform: translateY(-60px) scale(.8); opacity: 0; } }
+.hint { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 4; font-size: 12px; font-weight: 500; color: var(--chrome); background: var(--chrome-fg); padding: 7px 13px; border-radius: 99px; display: flex; gap: 6px; align-items: center; pointer-events: none; animation: nudge 1.6s ease-in-out infinite; white-space: nowrap; }
+@keyframes nudge { 50% { transform: translate(-50%, -5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+</style>
+
+</head>
+<body>
+<div id="app" data-paper="auto">
+  <header class="topbar">
+    <div class="brand"><i></i><span>Lembar Gulir</span></div>
+    <nav class="tabs" role="tablist" aria-label="Mode baca">
+      <button class="tab" role="tab" id="tabFeed" aria-selected="true">Untukmu</button>
+      <button class="tab" role="tab" id="tabRead" aria-selected="false">Sedang Dibaca</button>
+    </nav>
+    <div class="topprog" id="topprog"></div>
+  </header>
+
+  <main id="main">
+    <div class="measure" id="measure" aria-hidden="true">
+      <section class="page"><div class="sheet"><span class="ribbon"></span><div class="runhead"><span>A</span><span>B</span></div><div class="text" lang="id"></div><div class="foot"><span>a</span><span class="pn">1</span><span>b</span></div></div></section>
+    </div>
+    <div class="scroller" id="feed" aria-label="Kutipan untukmu"></div>
+    <div class="scroller" id="reader" aria-label="Halaman buku" hidden></div>
+    <section class="panel" id="rak" hidden></section>
+    <section class="panel" id="simpan" hidden></section>
+    <div class="rail" id="rail"></div>
+    <div class="hint" id="hint" hidden>Geser ke atas untuk halaman berikutnya</div>
+    <div class="busy" id="busy" hidden><div class="busy-card"><div class="spin"></div><span id="busyMsg">Menyusun halaman…</span></div></div>
+  </main>
+
+  <nav class="nav" aria-label="Navigasi utama">
+    <button class="nb" data-go="feed" aria-current="true"><svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 4l8.5 6.5V20h-5.5v-6h-6v6H3.5z"/></svg>Beranda</button>
+    <button class="nb" data-go="rak"><svg viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16.2 5.2l3.4-.9 3 15-3.4.9z"/></svg>Rak</button>
+    <button class="nb plus" data-go="upload" aria-label="Unggah buku"><span class="pill"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></span></button>
+    <button class="nb" data-go="simpan"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.5-9.2C1.2 7.6 3.4 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.4 0 5.6 3.1 4.3 6.8-2 4.6-9.5 9.2-9.5 9.2z"/></svg>Simpanan</button>
+    <button class="nb" data-go="atur"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4"/></svg>Tampilan</button>
+  </nav>
+</div>
+
+<input type="file" id="fileIn" accept=".txt,.md,.markdown,.pdf,.epub,text/plain,application/pdf,application/epub+zip" hidden>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Icons ---------- */
+const IC = {
+  heart: '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.5-9.2C1.2 7.6 3.4 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.4 0 5.6 3.1 4.3 6.8-2 4.6-9.5 9.2-9.5 9.2z"/></svg>',
+  mark: '<svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.6l-5.5 3.9z"/></svg>',
+  list: '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><path d="M9 9h10.5v11.5H9zM5 15.5V4h10.5"/></svg>',
+  up: '<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 15v5h16v-5"/></svg>',
+};
+
+/* ---------- Sample books (original texts) ---------- */
+const SAMPLE_A = `Bab 1 — Rumah di Ujung Gang
+
+Rumah Nenek Sari berdiri di ujung gang yang terlalu sempit untuk mobil dan terlalu panjang untuk diingat orang. Catnya hijau pucat, warna yang menurut Nenek dulu dipilih karena sedang diskon di toko bangunan dekat pasar. Di teras ada dua kursi rotan yang salah satu kakinya diganjal tutup botol, dan di atas pintunya tergantung lonceng kecil yang berbunyi setiap kali angin lewat.
+
+Laras datang ke rumah itu pada suatu Selasa sore, membawa satu koper dan satu kardus berisi buku. Ibunya harus bekerja di luar kota selama tiga bulan, dan tidak ada tempat lain yang mau menampung anak dua belas tahun yang terlalu banyak bertanya.
+
+"Kamarmu di atas," kata Nenek tanpa basa-basi. "Jangan sentuh jam pasir di lemari."
+
+Tentu saja hal pertama yang Laras lakukan setelah meletakkan koper adalah mencari jam pasir itu.
+
+Jam pasir itu ternyata lebih kecil dari yang ia bayangkan. Tingginya tidak lebih dari sejengkal, rangkanya kayu gelap yang sudah licin karena sering dipegang. Pasirnya berwarna keemasan, dan yang aneh, pasir itu tidak bergerak. Separuh berada di atas, separuh di bawah, dan di tengah-tengah ada sebutir yang tersangkut tepat di leher kaca, seolah sedang menunggu izin untuk jatuh.
+
+Laras mengetuk kacanya pelan. Butir itu tetap diam.
+
+Malam itu ia tidur dengan jendela terbuka. Dari kejauhan terdengar suara kereta terakhir, lalu sunyi, lalu bunyi lonceng di teras, sekali, padahal tidak ada angin sama sekali.
+
+Bab 2 — Surat yang Tidak Pernah Dikirim
+
+Seminggu kemudian Laras menemukan surat-surat itu. Letaknya di laci paling bawah lemari yang sama, terikat pita biru yang warnanya sudah luntur menjadi abu-abu. Ada dua puluh tiga amplop, semuanya ditulis dengan tulisan tangan yang miring ke kanan, dan semuanya ditujukan kepada orang yang sama: Arman, Jalan Kenari nomor 9.
+
+Tidak satu pun berprangko.
+
+Laras tahu membaca surat orang lain itu tidak sopan. Ia juga tahu bahwa rasa penasaran, kalau dibiarkan terlalu lama, akan berubah menjadi sesuatu yang lebih berat dari rasa bersalah. Jadi ia membuka amplop pertama, hanya satu, dan berjanji pada dirinya sendiri untuk berhenti di situ.
+
+"Arman," begitu surat itu dimulai, "hari ini aku membalik jam pasir pemberianmu untuk yang keseratus kalinya. Kamu bilang pasirnya butuh tepat satu jam untuk turun. Kamu salah. Kalau aku sedang menunggumu, pasirnya butuh satu tahun."
+
+Laras membaca surat kedua. Lalu ketiga. Ketika ia mendongak, langit di luar sudah gelap dan Nenek berdiri di ambang pintu, memegang dua gelas teh.
+
+Ia mengira akan dimarahi. Nenek justru duduk di ujung ranjang, meletakkan satu gelas di dekat kaki Laras, dan memandangi amplop-amplop yang berserakan dengan wajah yang tidak bisa Laras baca.
+
+"Dia berangkat berlayar waktu umurku sembilan belas," kata Nenek akhirnya. "Katanya pulang sebelum pasirnya habis tiga ratus kali. Aku menghitung. Aku berhenti menghitung di angka dua ratus enam puluh."
+
+"Lalu kenapa suratnya tidak dikirim?"
+
+Nenek menyesap tehnya lama sekali. "Karena alamatnya tidak pernah ada. Jalan Kenari itu cuma nama yang dia karang supaya aku punya tempat untuk menulis."
+
+Bab 3 — Pasir Terakhir
+
+Pada malam terakhir sebelum ibunya datang menjemput, Laras turun ke ruang tengah membawa jam pasir itu. Nenek sedang menjahit kancing di bawah lampu kuning yang berdengung pelan.
+
+"Kenapa pasirnya macet?" tanya Laras.
+
+"Karena aku yang menghentikannya." Nenek menunjuk butir di leher kaca. "Aku menyelipkan sehelai rambut di situ, bertahun-tahun lalu. Selama butir itu tidak jatuh, satu jam itu belum selesai. Selama satu jam itu belum selesai, dia belum terlambat."
+
+Laras memandangi butir kecil itu. Ia memikirkan dua puluh tiga surat tanpa prangko, alamat yang tidak ada, dan seorang perempuan yang memilih menghentikan waktu daripada menerima jawabannya.
+
+"Nek," katanya pelan, "boleh aku menulis surat juga?"
+
+"Untuk siapa?"
+
+"Untuk Nenek. Nanti aku kirim dari rumah. Alamatnya asli."
+
+Nenek tertawa, suara yang jarang sekali Laras dengar selama tiga bulan itu. Lalu, tanpa berkata apa-apa, ia mengambil jarum jahitnya, mengetuk kaca jam pasir dua kali di tempat yang tepat, dan membaliknya.
+
+Butir yang tersangkut itu jatuh. Pasir keemasan mulai mengalir, tipis dan tenang, seperti sesuatu yang akhirnya diizinkan pulang.
+
+Di teras, lonceng kecil berbunyi sekali. Kali ini memang ada angin.`;
+
+const SAMPLE_B = `Bagian 1 — Mengapa Kita Tergesa
+
+Kita hidup di antara layar yang tidak pernah selesai. Setiap kali ibu jari bergerak ke atas, ada hal baru yang menunggu: video lima belas detik, potongan berita, gambar kucing, iklan sepatu. Otak kita belajar dengan cepat bahwa tidak ada yang perlu dinikmati lama-lama, karena sesuatu yang lebih menarik mungkin ada di bawahnya.
+
+Kebiasaan itu terbawa ketika kita membuka buku. Mata melompat dari kalimat ke kalimat, mencari intinya, lalu merasa bersalah karena halaman masih banyak. Kita membaca seperti orang yang berlari di stasiun, takut ketinggalan kereta yang sebenarnya tidak pernah dijadwalkan.
+
+Padahal buku tidak dibuat untuk dikejar. Seorang penulis bisa menghabiskan satu sore penuh untuk memilih satu kata yang tepat. Kalau kita melewatinya dalam sepersekian detik, ada yang hilang di antara kedua belah pihak.
+
+Lalu bagaimana kalau gerakan yang sama, ibu jari yang menggeser layar ke atas, justru dipakai untuk membaca? Bukan untuk berpindah ke hal lain, melainkan untuk membuka halaman berikutnya dari cerita yang sama. Satu geseran, satu halaman. Tidak lebih.
+
+Bagian 2 — Satu Halaman Sekali Waktu
+
+Ada sesuatu yang menenangkan dari batas yang jelas. Satu halaman punya awal dan akhir. Ia muat di layar tanpa perlu digulir sedikit-sedikit, dan ketika selesai, kita sendiri yang memutuskan kapan pindah.
+
+Cobalah aturan kecil ini: jangan geser sebelum kalimat terakhir di halaman benar-benar sampai. Kalau ada kalimat yang bagus, ketuk dua kali dan simpan. Kalau mulai lelah, tandai halamannya, tutup aplikasi, dan percayalah bahwa halaman itu akan menunggu di tempat yang sama.
+
+Membaca pelan bukan berarti membaca sedikit. Dua puluh menit sehari, dengan kecepatan yang wajar, cukup untuk menamatkan belasan buku dalam setahun. Yang dibutuhkan bukan waktu luang yang panjang, melainkan kebiasaan kembali ke halaman yang sama setiap hari.
+
+Unggah buku yang selama ini menumpuk di folder unduhan: novel yang baru separuh dibaca, catatan kuliah, naskah tulisanmu sendiri. Biarkan semuanya menjadi lembar-lembar yang bisa digeser, satu per satu, sampai tamat.`;
+
+/* ---------- Helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep0 = () => new Promise(r => setTimeout(r, 0));
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PALETTE = ['#1b6a57', '#8c3a2b', '#2d4877', '#7a581c', '#5a3a6d', '#2a5d6c', '#6d2e44', '#3e5a29'];
+function hashColor(s) { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return PALETTE[Math.abs(h) % PALETTE.length]; }
+function store(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+function fmtNum(n) { return n >= 1000 ? (Math.round(n / 100) / 10).toString().replace('.', ',') + ' rb' : String(n); }
+function fmtTime(words) {
+  const m = Math.max(1, Math.round(words / 220));
+  if (m < 60) return m + ' mnt';
+  const h = Math.floor(m / 60), r = m % 60;
+  return h + ' j' + (r ? ' ' + r + ' mnt' : '');
+}
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) return res();
+    const s = document.createElement('script'); s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error('Pustaka pembaca file gagal dimuat. Periksa koneksi internet lalu coba lagi.'));
+    document.head.appendChild(s);
+  });
+}
+
+/* ---------- Storage (IndexedDB, falls back to memory) ---------- */
+const DB = (() => {
+  let p = null;
+  function open() {
+    if (p) return p;
+    p = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open('lembar-gulir', 1);
+        r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('books', { keyPath: 'id' }); d.createObjectStore('quotes', { keyPath: 'id' }); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+    return p;
+  }
+  async function run(name, mode, fn) {
+    const d = await open();
+    return new Promise((res, rej) => {
+      const t = d.transaction(name, mode); const req = fn(t.objectStore(name));
+      t.oncomplete = () => res(req ? req.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  }
+  return {
+    ok: true,
+    all: async n => { try { return await run(n, 'readonly', s => s.getAll()); } catch (e) { DB.ok = false; return null; } },
+    put: async (n, v) => { try { await run(n, 'readwrite', s => s.put(v)); return true; } catch (e) { return false; } },
+    del: async (n, k) => { try { await run(n, 'readwrite', s => s.delete(k)); } catch (e) {} },
+  };
+})();
+
+/* ---------- Parsing ---------- */
+function clean(s) { return s.replace(/\s+/g, ' ').trim(); }
+function isHeadingLine(l) {
+  if (/^#{1,6}\s+\S/.test(l)) return true;
+  if (l.length > 80 || /[,;]$/.test(l)) return false;
+  return /^(bab|chapter|bagian|part|prolog|prologue|epilog|epilogue|pendahuluan|kata pengantar|penutup|daftar isi)\b/i.test(l) || /^[IVXLC]+\.?$/.test(l);
+}
+function headingText(l) { return clean(l.replace(/^#{1,6}\s+/, '').replace(/[*_]{2}/g, '')); }
+function parsePlain(text) {
+  text = text.replace(/\r\n?/g, '\n').replace(/ /g, ' ').replace(/^﻿/, '');
+  const blankSep = /\n[ \t]*\n/.test(text);
+  const chunks = blankSep ? text.split(/\n[ \t]*\n+/) : text.split('\n');
+  const blocks = [];
+  for (const c of chunks) {
+    const lines = c.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    while (lines.length && isHeadingLine(lines[0]) && !/[.!?…]["”']?$/.test(lines[0])) {
+      blocks.push({ t: 'h', x: headingText(lines.shift()) });
+    }
+    if (!lines.length) continue;
+    const x = clean(lines.join(' ').replace(/(\*\*|__)/g, ''));
+    if (/^(\*\s*){3,}$|^(-\s*){3,}$|^~{3,}$|^⁂$/.test(x)) { blocks.push({ t: 's', x: '⁂' }); continue; }
+    blocks.push({ t: 'p', x });
+  }
+  return blocks;
+}
+
+async function parsePdf(buf, onProg) {
+  const V = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  await loadScript(V + 'pdf.min.js');
+  await loadScript(V + 'pdf.worker.min.js'); // runs the parser on the main thread (no cross-origin worker needed)
+  const lib = window.pdfjsLib;
+  lib.GlobalWorkerOptions.workerSrc = V + 'pdf.worker.min.js';
+  const doc = await lib.getDocument({ data: buf, isEvalSupported: false }).promise;
+  let title = '', author = '';
+  try { const m = await doc.getMetadata(); title = m.info?.Title || ''; author = m.info?.Author || ''; } catch (e) {}
+  const lines = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const page = await doc.getPage(n);
+    const tc = await page.getTextContent();
+    let cur = '';
+    for (const it of tc.items) {
+      if (typeof it.str !== 'string') continue;
+      cur += it.str;
+      if (it.hasEOL) { lines.push(cur); cur = ''; }
+    }
+    if (cur) lines.push(cur);
+    lines.push('\f');
+    onProg && onProg(n / doc.numPages);
+    if (n % 5 === 0) await sleep0();
+  }
+  const lens = lines.map(l => l.trim().length).filter(n => n > 20).sort((a, b) => a - b);
+  const typical = lens.length ? lens[Math.floor(lens.length * .85)] : 60;
+  const blocks = []; let para = '';
+  const flush = () => { const x = clean(para); if (x) blocks.push({ t: 'p', x }); para = ''; };
+  for (let raw of lines) {
+    if (raw === '\f') continue;
+    const l = raw.trim();
+    if (!l) { flush(); continue; }
+    if (/^\d{1,4}$/.test(l)) continue; // page numbers
+    if (!para && isHeadingLine(l) && l.length < typical * .8 && !/[.!?]$/.test(l)) { blocks.push({ t: 'h', x: headingText(l) }); continue; }
+    if (para.endsWith('-') && /^[a-z]/.test(l)) para = para.slice(0, -1) + l;
+    else para += (para ? ' ' : '') + l;
+    if (l.length < typical * .72 && /[.!?:"”’)]$/.test(l)) flush();
+  }
+  flush();
+  return { title: clean(title), author: clean(author), blocks };
+}
+
+async function parseEpub(buf) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const zip = await window.JSZip.loadAsync(buf);
+  const xml = s => new DOMParser().parseFromString(s, 'application/xml');
+  const cont = zip.file('META-INF/container.xml');
+  if (!cont) throw new Error('File EPUB ini tidak lengkap (container.xml tidak ada).');
+  const opfPath = xml(await cont.async('string')).getElementsByTagName('rootfile')[0]?.getAttribute('full-path');
+  if (!opfPath || !zip.file(opfPath)) throw new Error('Isi EPUB tidak bisa ditemukan.');
+  const base = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+  const opf = xml(await zip.file(opfPath).async('string'));
+  const title = opf.getElementsByTagNameNS('*', 'title')[0]?.textContent || '';
+  const author = opf.getElementsByTagNameNS('*', 'creator')[0]?.textContent || '';
+  const man = {};
+  for (const it of opf.getElementsByTagNameNS('*', 'item')) man[it.getAttribute('id')] = it.getAttribute('href');
+  const resolve = p => { const out = []; for (const seg of p.split('/')) { if (seg === '..') out.pop(); else if (seg && seg !== '.') out.push(seg); } return out.join('/'); };
+  const blocks = [];
+  const BLOCK = /^(p|h[1-6]|li|blockquote|pre|dd|dt|div|section|article|main|body|aside|figure|figcaption|ul|ol|table|tbody|tr|td|header|footer|nav)$/;
+  const walk = el => {
+    for (const ch of el.children) {
+      const tag = ch.localName.toLowerCase();
+      if (/^(script|style|head|title|nav)$/.test(tag)) continue;
+      if (/^h[1-6]$/.test(tag)) { const x = clean(ch.textContent); if (x) blocks.push({ t: 'h', x }); continue; }
+      const hasBlockKids = [...ch.children].some(c => BLOCK.test(c.localName.toLowerCase()));
+      if (hasBlockKids) { walk(ch); continue; }
+      if (tag === 'hr') { blocks.push({ t: 's', x: '⁂' }); continue; }
+      const x = clean(ch.textContent);
+      if (x) blocks.push({ t: 'p', x });
+    }
+  };
+  for (const ref of opf.getElementsByTagNameNS('*', 'itemref')) {
+    const href = man[ref.getAttribute('idref')]; if (!href) continue;
+    const f = zip.file(resolve(base + decodeURIComponent(href.split('#')[0])));
+    if (!f) continue;
+    const src = await f.async('string');
+    let d = new DOMParser().parseFromString(src, 'application/xhtml+xml');
+    if (d.getElementsByTagName('parsererror').length) d = new DOMParser().parseFromString(src, 'text/html');
+    const body = d.body || d.getElementsByTagName('body')[0];
+    if (body) walk(body);
+  }
+  return { title: clean(title), author: clean(author), blocks };
+}
+
+/* ---------- State ---------- */
+const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false }, store('lg-settings', {}));
+const P = store('lg-progress', {}); // bookId -> { b, w, marks: [[b,w]], t }
+let books = [];
+let quotes = [];
+let view = 'feed';
+
+const app = $('#app'), main = $('#main'), feedEl = $('#feed'), readEl = $('#reader'), rail = $('#rail');
+const mText = $('#measure .text');
+
+function bookById(id) { return books.find(b => b.id === id); }
+function words(b) { return b._w || (b._w = b.x.split(' ')); }
+function cum(book) {
+  if (book._cum) return book._cum;
+  const c = new Array(book.blocks.length + 1); c[0] = 0;
+  for (let i = 0; i < book.blocks.length; i++) c[i + 1] = c[i] + (book.blocks[i].t === 'p' ? words(book.blocks[i]).length : 0);
+  return (book._cum = c);
+}
+const cmp = (a, b) => (a.b - b.b) || (a.w - b.w);
+function prog(id) { return P[id] || (P[id] = { b: 0, w: 0, marks: [], t: 0 }); }
+function saveProg() { save('lg-progress', P); }
+function saveSettings() { save('lg-settings', S); }
+
+function applySettings() {
+  document.documentElement.style.setProperty('--fs', S.fs + 'px');
+  document.documentElement.style.setProperty('--lh', S.lh);
+  app.dataset.paper = S.paper;
+  app.dataset.font = S.font;
+}
+
+/* ---------- Layout engine: fill one page box ---------- */
+function renderPiece(b, pc) {
+  const el = document.createElement(b.t === 'h' ? 'h2' : 'p');
+  if (b.t === 's') { el.className = 'sep'; el.textContent = '⁂'; return el; }
+  if (!pc.w0 && pc.w1 == null) el.textContent = b.x;
+  else el.textContent = words(b).slice(pc.w0 || 0, pc.w1 == null ? undefined : pc.w1).join(' ');
+  if (pc.w0) el.classList.add('cont');
+  if (pc.w1 != null) el.classList.add('brk');
+  return el;
+}
+// Fill `box` starting at block i / word w. Returns pieces + where the next page starts.
+function fitPage(box, blocks, i, w) {
+  box.textContent = '';
+  const H = box.clientHeight + 1;
+  const pieces = [];
+  for (; i < blocks.length; i++, w = 0) {
+    const b = blocks[i];
+    if (b.t === 'h' && pieces.length) break; // chapters open on a fresh page
+    const pc = { i, w0: w };
+    const el = renderPiece(b, pc);
+    box.appendChild(el);
+    if (box.scrollHeight <= H) { pieces.push(pc); continue; }
+    box.removeChild(el);
+    if (b.t !== 'p') { if (!pieces.length) { box.appendChild(el); pieces.push(pc); i++; } break; }
+    // split paragraph: binary search the largest word count that fits
+    const ws = words(b);
+    const t = document.createElement('p'); t.className = 'brk' + (w ? ' cont' : ''); box.appendChild(t);
+    let lo = 1, hi = ws.length - w - 1, best = 0;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; t.textContent = ws.slice(w, w + mid).join(' '); if (box.scrollHeight <= H) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+    box.removeChild(t);
+    if (best < 4 && pieces.length) break; // avoid a lonely line at the bottom
+    if (best === 0) best = 1;
+    const part = { i, w0: w, w1: w + best };
+    box.appendChild(renderPiece(b, part)); pieces.push(part);
+    return { pieces, next: { b: i, w: w + best } };
+  }
+  return { pieces, next: { b: i, w: 0 } };
+}
+
+/* ---------- Reader ---------- */
+const R = { book: null, sig: '', pages: [], chap: [], chapters: [], idx: 0, token: 0, built: false };
+function layoutSig() { return [S.fs, S.lh, S.font, mText.clientWidth, mText.clientHeight].join('|'); }
+
+async function paginate(book, onProg) {
+  const token = ++R.token;
+  const pages = [];
+  let pos = { b: 0, w: 0 }, n = 0;
+  while (pos.b < book.blocks.length) {
+    const { pieces, next } = fitPage(mText, book.blocks, pos.b, pos.w);
+    if (!pieces.length) break;
+    pages.push(pieces);
+    pos = next;
+    if (++n % 25 === 0) { onProg && onProg(pos.b / book.blocks.length); await sleep0(); if (token !== R.token) return null; }
+  }
+  mText.textContent = '';
+  return pages;
+}
+
+function pageOf(key) {
+  const pg = R.pages; let lo = 0, hi = pg.length - 1, ans = 0;
+  while (lo <= hi) { const m = (lo + hi) >> 1; const s = pg[m][0]; if (cmp({ b: s.i, w: s.w0 || 0 }, key) <= 0) { ans = m; lo = m + 1; } else hi = m - 1; }
+  return ans;
+}
+const startKey = k => { const s = R.pages[k][0]; return { b: s.i, w: s.w0 || 0 }; };
+function inPage(key, k) { return cmp(key, startKey(k)) >= 0 && (k + 1 >= R.pages.length || cmp(key, startKey(k + 1)) < 0); }
+
+let busyCount = 0;
+function busy(msg) { busyCount++; $('#busy').hidden = false; $('#busyMsg').textContent = msg; }
+function busyMsg(msg) { $('#busyMsg').textContent = msg; }
+function unbusy() { busyCount = Math.max(0, busyCount - 1); if (!busyCount) $('#busy').hidden = true; }
+
+async function openReader(bookId, key) {
+  const book = bookById(bookId) || books[0];
+  if (!book) { R.book = null; renderReaderEmpty(); return; }
+  S.current = book.id; saveSettings();
+  if (!key) key = { b: prog(book.id).b, w: prog(book.id).w };
+  const sig = layoutSig();
+  if (R.book !== book || R.sig !== sig || !R.pages.length) {
+    busy('Menyusun halaman…');
+    try {
+      const pages = await paginate(book, f => busyMsg('Menyusun halaman… ' + Math.round(f * 100) + '%'));
+      if (!pages) return; // superseded
+      R.book = book; R.sig = sig; R.pages = pages;
+      indexChapters();
+      buildReader();
+    } finally { unbusy(); }
+  }
+  goPage(pageOf(key), false);
+}
+
+function indexChapters() {
+  const { book, pages } = R; let cur = '';
+  R.chap = new Array(pages.length); R.chapters = [];
+  pages.forEach((pg, k) => {
+    for (const pc of pg) { const b = book.blocks[pc.i]; if (b.t === 'h') { cur = b.x; R.chapters.push({ title: b.x, page: k }); break; } }
+    R.chap[k] = cur;
+  });
+}
+
+let readObs;
+function buildReader() {
+  readEl.textContent = '';
+  if (readObs) readObs.disconnect();
+  readObs = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && fillReaderPage(e.target)), { root: readEl, rootMargin: '150% 0px' });
+  const frag = document.createDocumentFragment();
+  for (let k = 0; k < R.pages.length; k++) {
+    const s = document.createElement('section'); s.className = 'page'; s.dataset.k = k; frag.appendChild(s);
+  }
+  readEl.appendChild(frag);
+  for (const s of readEl.children) readObs.observe(s);
+  R.built = true;
+}
+
+function fillReaderPage(sec) {
+  if (sec.dataset.f) return; sec.dataset.f = '1';
+  const k = +sec.dataset.k, book = R.book, pg = R.pages[k], c = cum(book), total = c[c.length - 1] || 1;
+  const s = pg[0]; const at = c[s.i] + (s.w0 || 0);
+  const pct = Math.round(((k + 1) / R.pages.length) * 100);
+  const last = k === R.pages.length - 1;
+  sec.innerHTML = `<div class="sheet"><span class="ribbon"></span>
+    <div class="runhead"><span>${esc(book.title)}</span><span>${esc(R.chap[k] || book.author)}</span></div>
+    <div class="text" lang="id"></div>
+    <div class="foot"><span>${last ? 'Tamat' : '± ' + fmtTime(total - at) + ' lagi'}</span><span class="pn">${k + 1}</span><span>${pct}%</span></div></div>`;
+  const box = sec.querySelector('.text');
+  for (const pc of pg) box.appendChild(renderPiece(book.blocks[pc.i], pc));
+  if (last) { const end = document.createElement('p'); end.className = 'sep'; end.textContent = '— selesai —'; box.appendChild(end); }
+  markSheet(sec);
+}
+function markSheet(sec) {
+  const sh = sec.querySelector('.sheet'); if (!sh) return;
+  const k = +sec.dataset.k; const marks = prog(R.book.id).marks || [];
+  sh.classList.toggle('marked', marks.some(m => inPage({ b: m[0], w: m[1] }, k)));
+}
+
+function goPage(k, smooth) {
+  const H = readEl.clientHeight;
+  if (!H) { R.idx = k; return; }
+  readEl.scrollTo({ top: k * H, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
+  R.idx = k;
+  const sec = readEl.children[k]; if (sec) fillReaderPage(sec);
+  readerSettled();
+}
+
+function readerSettled() {
+  if (!R.book || !R.pages.length) return;
+  const H = readEl.clientHeight; if (!H) return;
+  const k = Math.min(R.pages.length - 1, Math.round(readEl.scrollTop / H));
+  R.idx = k;
+  const key = startKey(k), p = prog(R.book.id);
+  p.b = key.b; p.w = key.w; p.t = Date.now(); saveProg();
+  if (view === 'read') { $('#topprog').style.width = ((k + 1) / R.pages.length * 100) + '%'; renderRail(); }
+}
+
+function renderReaderEmpty() {
+  if (readObs) readObs.disconnect();
+  R.pages = []; R.book = null;
+  readEl.innerHTML = `<section class="page"><div class="sheet"><div class="blank">
+    <h2>Belum ada buku yang dibuka</h2>
+    <p>Unggah file .txt, .md, .pdf, atau .epub. Setiap geseran ke atas membuka satu halaman.</p>
+    <button class="btn" data-act="upload">Unggah buku</button></div></div></section>`;
+}
+
+/* ---------- Feed (Untukmu) ---------- */
+const F = { items: [], seen: new Set(), idx: 0 };
+function chapterAt(book, i) { for (let j = i; j >= 0; j--) if (book.blocks[j].t === 'h') return book.blocks[j].x; return ''; }
+function pickExcerpt() {
+  if (!books.length) return null;
+  for (let tries = 0; tries < 30; tries++) {
+    const prev = F.items[F.items.length - 1];
+    let pool = books.length > 1 && prev ? books.filter(b => b.id !== prev.bookId) : books;
+    const book = pool[Math.floor(Math.random() * pool.length)];
+    const cand = [], c = cum(book), end = c[book.blocks.length];
+    book.blocks.forEach((b, i) => { if ((b.t === 'h' || (b.t === 'p' && b.x.length > 110)) && end - c[i] >= 170) cand.push(i); });
+    if (!cand.length) cand.push(0);
+    if (!cand.length) continue;
+    const i = cand[Math.floor(Math.random() * cand.length)];
+    const id = book.id + ':' + i;
+    if (F.seen.has(id) && tries < 25) continue;
+    F.seen.add(id);
+    return { bookId: book.id, i };
+  }
+  return null;
+}
+function feedSection(item) {
+  const book = bookById(item.bookId);
+  const s = document.createElement('section'); s.className = 'page';
+  const chap = chapterAt(book, item.i);
+  s.innerHTML = `<div class="sheet"><span class="ribbon"></span>
+    <div class="fhead"><span class="cover" style="--c:${book.color}">${esc(book.title.trim()[0] || '?')}</span>
+      <div class="fmeta"><b>${esc(book.title)}</b><small>${esc(book.author)}${chap ? ' · ' + esc(chap) : ''}</small></div></div>
+    <div class="text fade" lang="id"></div>
+    <div class="fcta"><button class="btn small" data-act="continue">Lanjut baca dari sini</button><small>${fmtNum(cum(book)[book.blocks.length])} kata</small></div></div>`;
+  return s;
+}
+function fillFeed(sec, item) {
+  const book = bookById(item.bookId);
+  const box = sec.querySelector('.text');
+  const r = fitPage(box, book.blocks, item.i, 0);
+  item.pieces = r.pieces; item.next = r.next;
+}
+function appendFeed(n) {
+  for (let k = 0; k < n; k++) {
+    const it = pickExcerpt(); if (!it) break;
+    const sec = feedSection(it);
+    feedEl.appendChild(sec); F.items.push(it);
+    fillFeed(sec, it);
+  }
+}
+function resetFeed() {
+  feedEl.textContent = ''; F.items = []; F.seen.clear(); F.idx = 0;
+  if (!books.length) {
+    feedEl.innerHTML = `<section class="page"><div class="sheet"><div class="blank">
+      <h2>Rakmu masih kosong</h2>
+      <p>Unggah buku pertamamu. Kutipan acak dari semua bukumu akan muncul di sini, satu halaman per geseran.</p>
+      <button class="btn" data-act="upload">Unggah buku</button></div></div></section>`;
+    return;
+  }
+  appendFeed(6);
+  feedEl.scrollTop = 0;
+}
+function refitFeed() {
+  [...feedEl.children].forEach((sec, k) => { const it = F.items[k]; if (it) fillFeed(sec, it); });
+}
+function feedSettled() {
+  const H = feedEl.clientHeight; if (!H) return;
+  F.idx = Math.round(feedEl.scrollTop / H);
+  if (F.items.length && F.idx >= F.items.length - 3) appendFeed(5);
+  if (view === 'feed') renderRail();
+  if (F.idx > 0 && !S.hinted) { S.hinted = true; saveSettings(); $('#hint').hidden = true; }
+}
+
+/* ---------- Page-turn effect: the leaving page sinks under the next one ---------- */
+function attachFx(sc, onSettle) {
+  let raf = 0, last = null, t = 0;
+  const run = () => {
+    raf = 0;
+    const H = sc.clientHeight; if (!H) return;
+    const s = sc.scrollTop / H, i = Math.floor(s), f = Math.min(1, Math.max(0, s - i));
+    const sh = sc.children[i] && sc.children[i].querySelector('.sheet');
+    if (last && last !== sh) { last.style.transform = ''; last.style.setProperty('--shade', 0); last = null; }
+    if (!sh || reduceMotion) return;
+    if (f > .002) {
+      sh.style.transform = `translate3d(0,${(f * H * .7).toFixed(1)}px,0) scale(${(1 - .07 * f).toFixed(4)})`;
+      sh.style.setProperty('--shade', (f * .5).toFixed(3)); last = sh;
+    } else { sh.style.transform = ''; sh.style.setProperty('--shade', 0); }
+  };
+  sc.addEventListener('scroll', () => {
+    if (!raf) raf = requestAnimationFrame(run);
+    clearTimeout(t); t = setTimeout(onSettle, 120);
+  }, { passive: true });
+}
+attachFx(feedEl, feedSettled);
+attachFx(readEl, readerSettled);
+
+/* ---------- Current page context (for rail actions) ---------- */
+function currentCtx() {
+  if (view === 'read' && R.book && R.pages.length) {
+    const k = R.idx;
+    return { book: R.book, start: startKey(k), next: k + 1 < R.pages.length ? startKey(k + 1) : null, pieces: R.pages[k], sec: readEl.children[k], label: 'hal. ' + (k + 1) };
+  }
+  if (view === 'feed' && F.items[F.idx] && F.items[F.idx].pieces) {
+    const it = F.items[F.idx]; const book = bookById(it.bookId);
+    return { book, start: { b: it.i, w: 0 }, next: it.next, pieces: it.pieces, sec: feedEl.children[F.idx], label: chapterAt(book, it.i) };
+  }
+  return null;
+}
+function ctxText(ctx) { return ctx.pieces.map(pc => { const b = ctx.book.blocks[pc.i]; return b.t === 's' ? '' : renderPiece(b, pc).textContent; }).filter(Boolean).join('\n\n'); }
+const within = (key, a, b) => cmp(key, a) >= 0 && (!b || cmp(key, b) < 0);
+function likedQuote(ctx) { return quotes.find(q => q.bookId === ctx.book.id && within(q.key, ctx.start, ctx.next)); }
+
+function renderRail() {
+  if (view !== 'feed' && view !== 'read') { rail.hidden = true; return; }
+  const ctx = currentCtx();
+  rail.hidden = !ctx;
+  if (!ctx) return;
+  const liked = !!likedQuote(ctx);
+  let h = '';
+  if (view === 'feed') h += `<button class="ract" data-act="continue" aria-label="Buka buku ini"><span class="cover" style="--c:${ctx.book.color}">${esc(ctx.book.title.trim()[0] || '?')}</span></button>`;
+  h += `<button class="ract ${liked ? 'on' : ''}" data-act="like" aria-pressed="${liked}"><span class="ic">${IC.heart}</span>${liked ? 'Disimpan' : 'Suka'}</button>`;
+  if (view === 'read') {
+    const marked = (prog(ctx.book.id).marks || []).some(m => within({ b: m[0], w: m[1] }, ctx.start, ctx.next));
+    h += `<button class="ract mk ${marked ? 'on' : ''}" data-act="mark" aria-pressed="${marked}"><span class="ic">${IC.mark}</span>Tandai</button>`;
+    h += `<button class="ract" data-act="toc"><span class="ic">${IC.list}</span>Isi</button>`;
+  }
+  h += `<button class="ract" data-act="atur"><span class="ic"><span class="aa">Aa</span></span>Teks</button>`;
+  h += `<button class="ract" data-act="copy"><span class="ic">${IC.copy}</span>Salin</button>`;
+  rail.innerHTML = h;
+}
+
+/* ---------- Actions ---------- */
+let toastT;
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2200);
+}
+function burst(x, y) {
+  const b = document.createElement('div'); b.className = 'burst'; b.innerHTML = IC.heart;
+  b.style.left = x + 'px'; b.style.top = y + 'px'; document.body.appendChild(b);
+  setTimeout(() => b.remove(), 800);
+}
+async function toggleLike(forceOn) {
+  const ctx = currentCtx(); if (!ctx) return;
+  const ex = likedQuote(ctx);
+  if (ex && forceOn) return renderRail();
+  if (ex) {
+    quotes = quotes.filter(q => q !== ex); await DB.del('quotes', ex.id); toast('Dihapus dari Simpanan');
+  } else {
+    const q = { id: 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), bookId: ctx.book.id, title: ctx.book.title, author: ctx.book.author, key: ctx.start, label: ctx.label, text: ctxText(ctx).slice(0, 1400), at: Date.now() };
+    quotes.unshift(q); await DB.put('quotes', q); toast('Halaman disimpan ke Simpanan');
+  }
+  renderRail();
+}
+function toggleMark() {
+  const ctx = currentCtx(); if (!ctx || view !== 'read') return;
+  const p = prog(ctx.book.id); p.marks = p.marks || [];
+  const i = p.marks.findIndex(m => within({ b: m[0], w: m[1] }, ctx.start, ctx.next));
+  if (i >= 0) { p.marks.splice(i, 1); toast('Penanda dilepas'); }
+  else { p.marks.push([ctx.start.b, ctx.start.w]); toast('Halaman ditandai'); }
+  saveProg(); if (ctx.sec) markSheet(ctx.sec); renderRail();
+}
+function copyPage() {
+  const ctx = currentCtx(); if (!ctx) return;
+  const text = ctxText(ctx) + '\n\n— ' + ctx.book.title + ', ' + ctx.book.author;
+  const fallback = () => {
+    const box = ctx.sec && ctx.sec.querySelector('.text'); if (!box) return;
+    const r = document.createRange(); r.selectNodeContents(box); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    toast('Teks sudah dipilih. Salin lewat menu perangkatmu.');
+  };
+  try { navigator.clipboard.writeText(text).then(() => toast('Teks halaman tersalin'), fallback); } catch (e) { fallback(); }
+}
+
+/* ---------- Modals ---------- */
+function modal(html, onMount) {
+  closeModal();
+  const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal';
+  m.innerHTML = `<div class="msheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) closeModal(); });
+  document.body.appendChild(m);
+  onMount && onMount(m);
+  const f = m.querySelector('button, input, textarea'); f && f.focus({ preventScroll: true });
+}
+function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+
+function openUpload() {
+  modal(`<div class="mrow"><h3>Unggah buku</h3><button class="btn ghost small" data-close>Tutup</button></div>
+    <label class="drop" id="drop" for="fileIn">${IC.up.replace('<svg', '<svg aria-hidden="true"')}
+      <b>Pilih file atau tarik ke sini</b><small>Teks dipecah otomatis menjadi halaman seukuran layarmu.</small>
+      <span class="fmts"><span>TXT</span><span>MD</span><span>PDF</span><span>EPUB</span></span></label>
+    <div class="divider">atau tempel teks</div>
+    <div class="two"><label class="field">Judul<input id="pTitle" placeholder="Judul buku"></label><label class="field">Penulis<input id="pAuthor" placeholder="Nama penulis"></label></div>
+    <label class="field">Isi<textarea id="pText" placeholder="Tempel isi bukumu di sini. Pisahkan paragraf dengan baris kosong. Baris seperti “Bab 1” menjadi judul bab."></textarea></label>
+    <button class="btn" id="pSave">Simpan dan baca</button>
+    <small style="color:var(--muted);font-size:12px;line-height:1.5">Buku disimpan di peramban perangkat ini saja dan tidak diunggah ke server mana pun. PDF hasil pindaian (gambar) belum bisa dibaca.</small>`,
+  m => {
+    const drop = m.querySelector('#drop');
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) { closeModal(); handleFile(f); } });
+    m.querySelector('#pSave').addEventListener('click', async () => {
+      const text = m.querySelector('#pText').value;
+      const blocks = parsePlain(text);
+      if (blocks.filter(b => b.t === 'p').length === 0) { toast('Tempel teksnya dulu, minimal satu paragraf.'); return; }
+      closeModal();
+      await addBook({ title: m.querySelector('#pTitle').value.trim() || 'Tanpa judul', author: m.querySelector('#pAuthor').value.trim() || 'Tanpa nama penulis', blocks });
+    });
+  });
+}
+
+function openSettings() {
+  const papers = [['auto', 'Ikuti sistem', 'linear-gradient(135deg,#fbfaf5 50%,#1b1c19 50%)'], ['kertas', 'Kertas', '#fbfaf5'], ['sepia', 'Sepia', '#f1e5cd'], ['malam', 'Malam', '#1b1c19']];
+  modal(`<div class="mrow"><h3>Tampilan halaman</h3><button class="btn ghost small" data-close>Selesai</button></div>
+    <div class="lbl">Warna kertas</div>
+    <div class="seg" id="sPaper">${papers.map(p => `<button data-v="${p[0]}" aria-pressed="${S.paper === p[0]}"><span class="swatch" style="background:${p[2]}"></span>${p[1]}</button>`).join('')}</div>
+    <div class="lbl">Huruf</div>
+    <div class="seg" id="sFont"><button data-v="serif" aria-pressed="${S.font === 'serif'}" style="font-family:Literata,Georgia,serif">Serif buku</button><button data-v="sans" aria-pressed="${S.font === 'sans'}">Sans modern</button></div>
+    <label class="lbl" for="sFs">Ukuran huruf</label>
+    <div class="range"><input type="range" id="sFs" min="15" max="26" step="1" value="${S.fs}"><output id="oFs">${S.fs} px</output></div>
+    <label class="lbl" for="sLh">Jarak baris</label>
+    <div class="range"><input type="range" id="sLh" min="1.35" max="2" step="0.05" value="${S.lh}"><output id="oLh">${(+S.lh).toFixed(2)}</output></div>`,
+  m => {
+    const seg = (id, key) => m.querySelector(id).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      S[key] = b.dataset.v; m.querySelectorAll(id + ' button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      saveSettings(); applySettings(); relayoutSoon();
+    });
+    seg('#sPaper', 'paper'); seg('#sFont', 'font');
+    m.querySelector('#sFs').addEventListener('input', e => { S.fs = +e.target.value; m.querySelector('#oFs').textContent = S.fs + ' px'; saveSettings(); applySettings(); relayoutSoon(); });
+    m.querySelector('#sLh').addEventListener('input', e => { S.lh = +e.target.value; m.querySelector('#oLh').textContent = S.lh.toFixed(2); saveSettings(); applySettings(); relayoutSoon(); });
+  });
+}
+
+function openToc() {
+  if (!R.book) return;
+  const marks = (prog(R.book.id).marks || []).map(m => pageOf({ b: m[0], w: m[1] })).sort((a, b) => a - b);
+  const curCh = R.chapters.filter(c => c.page <= R.idx).pop();
+  modal(`<div class="mrow"><h3>${esc(R.book.title)}</h3><button class="btn ghost small" data-close>Tutup</button></div>
+    <div class="lbl">Daftar isi · ${R.pages.length} halaman</div>
+    <div class="toc">${R.chapters.length ? R.chapters.map(c => `<button data-page="${c.page}" class="${c === curCh ? 'cur' : ''}"><span>${esc(c.title)}</span><span>hal. ${c.page + 1}</span></button>`).join('') : `<button data-page="0"><span>Halaman pertama</span><span>hal. 1</span></button>`}</div>
+    ${marks.length ? `<div class="lbl">Halaman bertanda</div><div class="toc">${marks.map(p => `<button data-page="${p}"><span>${esc(R.chap[p] || 'Penanda')}</span><span>hal. ${p + 1}</span></button>`).join('')}</div>` : ''}`,
+  m => m.addEventListener('click', e => { const b = e.target.closest('[data-page]'); if (b) { closeModal(); goPage(+b.dataset.page, false); } }));
+}
+
+/* ---------- Books ---------- */
+async function addBook({ title, author, blocks }, silent) {
+  const id = 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const book = { id, title, author, blocks, color: hashColor(title + author), added: Date.now() };
+  books.unshift(book);
+  const ok = await DB.put('books', book);
+  if (silent) return book;
+  if (!ok) toast('Buku dibuka, tetapi tidak bisa disimpan permanen di peramban ini.');
+  else toast('“' + title + '” masuk ke rak');
+  resetFeed();
+  await show('read', { bookId: id, key: { b: 0, w: 0 } });
+  return book;
+}
+async function removeBook(id) {
+  books = books.filter(b => b.id !== id);
+  await DB.del('books', id);
+  delete P[id]; saveProg();
+  if (S.current === id) { S.current = books[0]?.id || null; saveSettings(); }
+  if (R.book && R.book.id === id) { R.book = null; R.pages = []; R.sig = ''; }
+  resetFeed(); renderRak();
+}
+async function handleFile(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  busy('Membaca ' + file.name + '…');
+  try {
+    let res;
+    if (['txt', 'md', 'markdown', 'text'].includes(ext) || file.type.startsWith('text/')) res = { blocks: parsePlain(await file.text()) };
+    else if (ext === 'pdf') res = await parsePdf(await file.arrayBuffer(), f => busyMsg('Membaca PDF… ' + Math.round(f * 100) + '%'));
+    else if (ext === 'epub') res = await parseEpub(await file.arrayBuffer());
+    else throw new Error('Format .' + ext + ' belum didukung. Gunakan .txt, .md, .pdf, atau .epub.');
+    const nWords = res.blocks.reduce((n, b) => n + (b.t === 'p' ? b.x.split(' ').length : 0), 0);
+    if (nWords < 15) throw new Error('Tidak ada teks yang bisa dibaca di file ini. PDF hasil pindaian (gambar) belum didukung.');
+    const base = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+    unbusy();
+    await addBook({ title: res.title || base || 'Tanpa judul', author: res.author || 'Tanpa nama penulis', blocks: res.blocks });
+  } catch (e) {
+    unbusy();
+    toast(e.message || 'File tidak bisa dibaca.');
+  }
+}
+
+/* ---------- Panels ---------- */
+function renderRak() {
+  const el = $('#rak');
+  const cards = books.map(b => {
+    const c = cum(b), total = c[c.length - 1] || 1, p = P[b.id];
+    const at = p ? (c[p.b] || 0) + (p.w || 0) : 0; const pct = Math.min(100, Math.round(at / total * 100));
+    return `<article class="book">
+      <button class="bcover" style="--c:${b.color}" data-act="read" data-id="${b.id}" aria-label="Baca ${esc(b.title)}">${b.sample ? '<span class="tag">Contoh</span>' : ''}<b>${esc(b.title)}</b><small>${esc(b.author)}</small></button>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="binfo"><span>${pct}% dibaca</span><span>${fmtNum(total)} kata</span></div>
+      <div class="bact"><button class="btn small" data-act="read" data-id="${b.id}">${pct > 0 ? 'Lanjutkan' : 'Baca'}</button><button class="btn ghost small" data-act="del" data-id="${b.id}">Hapus</button></div>
+    </article>`;
+  }).join('');
+  el.innerHTML = `<div class="panel-in"><h1>Rak buku</h1><p class="sub">${books.length} buku · tersimpan di perangkat ini</p>
+    <div class="shelf">${cards}<button class="addcard" data-act="upload">${IC.up}Unggah buku</button></div></div>`;
+}
+function renderSimpan() {
+  const el = $('#simpan');
+  el.innerHTML = `<div class="panel-in"><h1>Simpanan</h1><p class="sub">Halaman yang kamu sukai. Ketuk dua kali sebuah halaman untuk menyimpannya.</p>
+    ${quotes.length ? `<div class="quotes">${quotes.map(q => `<article class="quote"><blockquote>${esc(q.text).replace(/\n\n/g, '<br><br>')}</blockquote>
+      <div class="qm"><span>${esc(q.title)} — ${esc(q.author)}${q.label ? ' · ' + esc(q.label) : ''}</span>
+      <span class="bact"><button class="btn small" data-act="openq" data-id="${q.id}">Buka halaman</button><button class="btn ghost small" data-act="delq" data-id="${q.id}">Hapus</button></span></div></article>`).join('')}</div>`
+      : `<div class="empty"><b>Belum ada halaman tersimpan</b><span>Saat membaca, ketuk tombol hati atau ketuk dua kali halamannya.</span></div>`}</div>`;
+}
+
+/* ---------- View switching ---------- */
+async function show(v, opts = {}) {
+  view = v;
+  feedEl.hidden = v !== 'feed'; readEl.hidden = v !== 'read';
+  $('#rak').hidden = v !== 'rak'; $('#simpan').hidden = v !== 'simpan';
+  $('#tabFeed').setAttribute('aria-selected', v === 'feed'); $('#tabRead').setAttribute('aria-selected', v === 'read');
+  document.querySelectorAll('.nb[data-go]').forEach(b => b.setAttribute('aria-current', b.dataset.go === (v === 'read' ? 'feed' : v)));
+  $('#topprog').style.width = '0';
+  $('#hint').hidden = !(v === 'feed' && !S.hinted && books.length);
+  if (v === 'feed') { if (!feedEl.children.length) resetFeed(); renderRail(); }
+  if (v === 'read') {
+    if (opts.bookId || !R.book || R.sig !== layoutSig()) await openReader(opts.bookId || S.current, opts.key);
+    else if (opts.key) goPage(pageOf(opts.key), false);
+    else goPage(R.idx, false);
+    renderRail();
+  }
+  if (v === 'rak') { renderRak(); rail.hidden = true; }
+  if (v === 'simpan') { renderSimpan(); rail.hidden = true; }
+}
+
+let relayoutT;
+function relayoutSoon() {
+  clearTimeout(relayoutT);
+  relayoutT = setTimeout(async () => {
+    if (feedEl.children.length && F.items.length) {
+      const k = F.idx; refitFeed();
+      if (view === 'feed') feedEl.scrollTop = k * feedEl.clientHeight;
+    }
+    if (R.book && R.pages.length) {
+      const key = startKey(R.idx);
+      if (view === 'read') await openReader(R.book.id, key);
+      else R.sig = ''; // rebuild next time it is shown
+    }
+    if (view === 'feed' || view === 'read') renderRail();
+  }, 220);
+}
+let lastSize = '';
+new ResizeObserver(() => { const s = main.clientWidth + 'x' + main.clientHeight; if (s !== lastSize) { const first = !lastSize; lastSize = s; if (!first) relayoutSoon(); } }).observe(main);
+
+/* ---------- Events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act], [data-go]'); if (!t) return;
+  const act = t.dataset.act || t.dataset.go;
+  switch (act) {
+    case 'feed': show('feed'); break;
+    case 'rak': show('rak'); break;
+    case 'simpan': show('simpan'); break;
+    case 'upload': openUpload(); break;
+    case 'atur': openSettings(); break;
+    case 'like': toggleLike(false); break;
+    case 'mark': toggleMark(); break;
+    case 'toc': openToc(); break;
+    case 'copy': copyPage(); break;
+    case 'continue': { const it = F.items[F.idx]; if (it) show('read', { bookId: it.bookId, key: { b: it.i, w: 0 } }); break; }
+    case 'read': show('read', { bookId: t.dataset.id }); break;
+    case 'del': {
+      if (t.dataset.armed) { removeBook(t.dataset.id); toast('Buku dihapus dari rak'); break; }
+      t.dataset.armed = '1'; t.textContent = 'Yakin hapus?'; t.classList.remove('ghost'); t.classList.add('danger');
+      setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = 'Hapus'; t.classList.add('ghost'); t.classList.remove('danger'); } }, 3500);
+      break;
+    }
+    case 'openq': { const q = quotes.find(x => x.id === t.dataset.id); if (q && bookById(q.bookId)) show('read', { bookId: q.bookId, key: q.key }); else toast('Buku untuk kutipan ini sudah dihapus dari rak.'); break; }
+    case 'delq': { const q = quotes.find(x => x.id === t.dataset.id); quotes = quotes.filter(x => x !== q); if (q) DB.del('quotes', q.id); renderSimpan(); break; }
+  }
+});
+$('#tabFeed').addEventListener('click', () => show('feed'));
+$('#tabRead').addEventListener('click', () => show('read'));
+$('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) { closeModal(); handleFile(f); } });
+
+// Tap = hide/show controls, double tap = save page (like a heart on a video)
+let lastTap = 0, tapT;
+[feedEl, readEl].forEach(sc => sc.addEventListener('click', e => {
+  if (e.target.closest('button, a, input')) return;
+  if (!e.target.closest('.sheet') || e.target.closest('.blank')) return;
+  const now = Date.now();
+  if (now - lastTap < 320) {
+    clearTimeout(tapT); lastTap = 0; burst(e.clientX, e.clientY); toggleLike(true);
+    if (getSelection) getSelection().removeAllRanges();
+    return;
+  }
+  lastTap = now;
+  tapT = setTimeout(() => app.classList.toggle('immersive'), 330);
+}));
+
+document.addEventListener('keydown', e => {
+  if ($('#modal')) { if (e.key === 'Escape') closeModal(); return; }
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  const sc = view === 'read' ? readEl : view === 'feed' ? feedEl : null; if (!sc) return;
+  const H = sc.clientHeight, k = Math.round(sc.scrollTop / H);
+  let d = 0;
+  if (['ArrowDown', 'PageDown', ' ', 'j'].includes(e.key)) d = 1;
+  if (['ArrowUp', 'PageUp', 'k'].includes(e.key)) d = -1;
+  if (!d) return;
+  e.preventDefault();
+  sc.scrollTo({ top: Math.max(0, k + d) * H, behavior: reduceMotion ? 'auto' : 'smooth' });
+});
+
+/* ---------- Boot ---------- */
+async function boot() {
+  applySettings();
+  try { await document.fonts.ready; } catch (e) {}
+  const stored = await DB.all('books');
+  const q = await DB.all('quotes');
+  quotes = (q || []).sort((a, b) => b.at - a.at);
+  books = (stored || []).sort((a, b) => (P[b.id]?.t || b.added) - (P[a.id]?.t || a.added));
+  if (!books.length && !store('lg-seeded', false)) {
+    const a = await addBook({ title: 'Jam Pasir di Atas Lemari', author: 'Naskah contoh', blocks: parsePlain(SAMPLE_A) }, true);
+    const b = await addBook({ title: 'Membaca Pelan di Zaman Cepat', author: 'Esai contoh', blocks: parsePlain(SAMPLE_B) }, true);
+    a.sample = b.sample = true; await DB.put('books', a); await DB.put('books', b);
+    books = [a, b];
+    if (DB.ok) save('lg-seeded', true);
+  }
+  books.forEach(b => { if (!b.color) b.color = hashColor(b.title + b.author); });
+  if (S.current && !bookById(S.current)) S.current = books[0]?.id || null;
+  await show('feed');
+}
+boot();
+})();
+</script>
+
+</body>
+</html>
