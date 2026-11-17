@@ -154,7 +154,7 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .bcover::after { content: ""; position: absolute; left: 9px; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.22); }
 .bcover b { font: 600 17px/1.18 var(--f-read); text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .bcover small { font-size: 11.5px; opacity: .85; letter-spacing: .04em; }
-.bcover .tag { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: rgba(255,255,255,.2); padding: 3px 7px; border-radius: 99px; }
+.bcover .tag { position: absolute; bottom: 10px; right: 10px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: rgba(255,255,255,.2); padding: 3px 7px; border-radius: 99px; }
 .bar { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--accent); }
 .binfo { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -222,6 +222,51 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .hint { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 4; font-size: 12px; font-weight: 500; color: var(--chrome); background: var(--chrome-fg); padding: 7px 13px; border-radius: 99px; display: flex; gap: 6px; align-items: center; pointer-events: none; animation: nudge 1.6s ease-in-out infinite; white-space: nowrap; }
 @keyframes nudge { 50% { transform: translate(-50%, -5px); } }
 
+/* Upload: a real file input covers the drop zone so a tap always opens the picker */
+.drop { position: relative; }
+.filehit { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
+.pickbtn { pointer-events: none; }
+
+/* Auto-advance progress (like a video timeline) */
+.autobar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 5; background: color-mix(in srgb, var(--ink-soft) 25%, transparent); pointer-events: none; }
+.autobar i { display: block; height: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0); }
+.ract.play .ic { color: var(--accent); }
+.ract.snd.on .ic { color: var(--accent); }
+.ract.snd.on .ic svg { fill: none; }
+.nowplay { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 12px; z-index: 5; display: flex; align-items: center; gap: 8px; background: var(--chrome); color: var(--chrome-fg); border: 1px solid var(--line); padding: 6px 12px 6px 10px; border-radius: 99px; font-size: 12px; font-weight: 500; box-shadow: 0 6px 16px -10px rgba(0,0,0,.4); max-width: calc(100% - 100px); }
+.nowplay span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eq { display: flex; gap: 2px; align-items: flex-end; height: 12px; flex: none; }
+.eq i { width: 3px; background: var(--accent); border-radius: 1px; animation: eq 1s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -.3s; } .eq i:nth-child(3) { animation-delay: -.6s; }
+@keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
+::highlight(narasi) { background-color: rgba(64, 170, 140, .3); }
+@media (max-height: 700px) { .rail { gap: 7px; bottom: 12px; } .ract .ic { width: 38px; height: 38px; } .ract { font-size: 10px; } }
+
+/* Settings groups + toggles */
+.group { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.group h4 { margin: 0; font: 700 15px/1.2 var(--f-ui); }
+.note { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.sw { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.sw input { appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; flex: none; transition: background .15s; }
+.sw input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--chrome); box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s; }
+.sw input:checked { background: var(--accent); }
+.sw input:checked::after { transform: translateX(18px); }
+
+/* Learning stats on the shelf */
+.stats { background: var(--paper); color: var(--ink); border: 1px solid var(--paper-edge); border-radius: 10px; padding: 16px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 22px; align-items: center; }
+.stats .goal { display: grid; gap: 8px; min-width: 0; }
+.stats .goal b { font: 600 22px/1.1 var(--f-read); font-variant-numeric: tabular-nums; }
+.stats .goal small, .stats .facts small { color: var(--ink-soft); font-size: 12px; }
+.stats .facts { display: flex; gap: 22px; }
+.stats .facts div { display: grid; gap: 2px; }
+.stats .facts b { font: 700 18px/1.1 var(--f-ui); font-variant-numeric: tabular-nums; }
+.week { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 74px; }
+.week div { display: grid; gap: 4px; justify-items: center; align-content: end; height: 100%; font-size: 10.5px; color: var(--ink-soft); }
+.week i { width: 100%; max-width: 26px; border-radius: 3px 3px 1px 1px; background: var(--paper-edge); min-height: 3px; }
+.week i.hit { background: var(--accent); }
+.week .today { color: var(--ink); font-weight: 700; }
+@media (max-width: 480px) { .stats { grid-template-columns: 1fr; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
@@ -248,6 +293,8 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
     <section class="panel" id="rak" hidden></section>
     <section class="panel" id="simpan" hidden></section>
     <div class="rail" id="rail"></div>
+    <div class="autobar" id="autobar" hidden><i></i></div>
+    <div class="nowplay" id="nowplay" hidden><span class="eq"><i></i><i></i><i></i></span><span id="nowtxt">Membacakan halaman</span></div>
     <div class="hint" id="hint" hidden>Geser ke atas untuk halaman berikutnya</div>
     <div class="busy" id="busy" hidden><div class="busy-card"><div class="spin"></div><span id="busyMsg">Menyusun halaman…</span></div></div>
   </main>
@@ -257,11 +304,10 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
     <button class="nb" data-go="rak"><svg viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16.2 5.2l3.4-.9 3 15-3.4.9z"/></svg>Rak</button>
     <button class="nb plus" data-go="upload" aria-label="Unggah buku"><span class="pill"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></span></button>
     <button class="nb" data-go="simpan"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.5-9.2C1.2 7.6 3.4 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.4 0 5.6 3.1 4.3 6.8-2 4.6-9.5 9.2-9.5 9.2z"/></svg>Simpanan</button>
-    <button class="nb" data-go="atur"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4"/></svg>Tampilan</button>
+    <button class="nb" data-go="atur"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4"/></svg>Atur</button>
   </nav>
 </div>
 
-<input type="file" id="fileIn" accept=".txt,.md,.markdown,.pdf,.epub,text/plain,application/pdf,application/epub+zip" hidden>
 
 <script>
 (() => {
@@ -273,6 +319,10 @@ const IC = {
   mark: '<svg viewBox="0 0 24 24"><path d="M6.5 3.5h11v17L12 16.6l-5.5 3.9z"/></svg>',
   list: '<svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><path d="M9 9h10.5v11.5H9zM5 15.5V4h10.5"/></svg>',
+  sndOn: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.4a8 8 0 0 1 0 11.2"/></svg>',
+  sndOff: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5"/></svg>',
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 15v5h16v-5"/></svg>',
 };
 
@@ -354,6 +404,44 @@ Cobalah aturan kecil ini: jangan geser sebelum kalimat terakhir di halaman benar
 Membaca pelan bukan berarti membaca sedikit. Dua puluh menit sehari, dengan kecepatan yang wajar, cukup untuk menamatkan belasan buku dalam setahun. Yang dibutuhkan bukan waktu luang yang panjang, melainkan kebiasaan kembali ke halaman yang sama setiap hari.
 
 Unggah buku yang selama ini menumpuk di folder unduhan: novel yang baru separuh dibaca, catatan kuliah, naskah tulisanmu sendiri. Biarkan semuanya menjadi lembar-lembar yang bisa digeser, satu per satu, sampai tamat.`;
+
+const SAMPLE_C = `Bab 1 — Menguji Diri Lebih Kuat daripada Membaca Ulang
+
+Kebanyakan orang belajar dengan membaca ulang catatan sampai terasa akrab. Masalahnya, rasa akrab bukan tanda paham. Kita merasa sudah tahu karena kalimatnya terlihat familiar, padahal belum tentu bisa mengeluarkannya sendiri dari kepala.
+
+Psikolog kognitif menyebut cara yang lebih ampuh sebagai latihan mengingat aktif atau active recall. Alih-alih membaca lagi, kamu menutup buku lalu bertanya pada diri sendiri: apa tiga poin utama bagian tadi? Usaha untuk memanggil kembali informasi itulah yang memperkuat ingatan.
+
+Penelitian Henry Roediger dan Jeffrey Karpicke pada tahun 2006 membandingkan mahasiswa yang membaca ulang sebuah teks dengan mahasiswa yang diuji tentang teks yang sama. Seminggu kemudian, kelompok yang diuji mengingat jauh lebih banyak, walaupun saat belajar mereka merasa kurang yakin.
+
+Coba sekarang: tutup layar ini sebentar dan sebutkan dengan kata-katamu sendiri mengapa membaca ulang sering menipu.
+
+Bab 2 — Pengulangan Berjarak
+
+Pada tahun 1885, Hermann Ebbinghaus menguji ingatannya sendiri dengan menghafal suku kata tanpa arti. Ia menemukan bahwa sebagian besar hal yang baru dipelajari cepat terlupa dalam beberapa hari pertama. Pola ini dikenal sebagai kurva lupa.
+
+Kabar baiknya, setiap kali kita mengulang tepat saat ingatan mulai memudar, lupanya melambat. Inilah dasar pengulangan berjarak atau spaced repetition. Daripada belajar tiga jam dalam satu malam, lebih baik tiga puluh menit yang dibagi ke beberapa hari.
+
+Jadwal sederhana yang bisa dicoba: ulangi materi satu hari setelah belajar, lalu tiga hari kemudian, lalu seminggu, lalu dua minggu. Setiap pengulangan cukup singkat, dan sebaiknya berupa menguji diri seperti di bab sebelumnya.
+
+Di aplikasi ini, ketuk dua kali halaman penting untuk menyimpannya. Buka Simpanan beberapa hari kemudian dan coba ingat isinya sebelum membaca.
+
+Bab 3 — Teknik Feynman
+
+Fisikawan Richard Feynman dikenal pandai menjelaskan hal rumit dengan bahasa sederhana. Cara belajar yang dinamai dari namanya punya empat langkah.
+
+Pertama, tulis nama konsep yang ingin dipahami. Kedua, jelaskan konsep itu seolah kepada anak sekolah dasar, tanpa istilah teknis. Ketiga, perhatikan bagian di mana penjelasanmu macet atau mulai berbelit; di situlah pemahamanmu masih bolong. Keempat, kembali ke sumber, perbaiki, lalu sederhanakan lagi.
+
+Teknik ini bekerja karena memaksa kita mengubah informasi menjadi kata-kata sendiri. Kalau kita tidak bisa menjelaskannya dengan sederhana, kemungkinan besar kita belum benar-benar memahaminya.
+
+Bab 4 — Fokus Pendek, Istirahat Teratur
+
+Teknik Pomodoro dikembangkan Francesco Cirillo pada akhir 1980-an. Caranya: pasang pengatur waktu dua puluh lima menit, kerjakan satu hal saja, lalu istirahat lima menit. Setelah empat putaran, ambil istirahat yang lebih panjang.
+
+Batas waktu yang jelas membuat tugas besar terasa lebih ringan untuk dimulai. Istirahat singkat juga memberi otak kesempatan untuk mengendapkan apa yang baru saja dipelajari.
+
+Satu hal lagi yang sering dilupakan adalah tidur. Selama tidur, otak memperkuat dan merapikan ingatan dari hari itu. Begadang sebelum ujian sering justru membuat hasil belajar semalam tidak sempat menempel.
+
+Coba sekarang: pasang target harian di menu Atur, lalu baca satu bab per hari. Sedikit tapi rutin hampir selalu mengalahkan banyak tapi jarang.`;
 
 /* ---------- Helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -520,8 +608,34 @@ async function parseEpub(buf) {
   return { title: clean(title), author: clean(author), blocks };
 }
 
+async function parseDocx(buf) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const zip = await window.JSZip.loadAsync(buf);
+  const f = zip.file('word/document.xml');
+  if (!f) throw new Error('File Word ini tidak bisa dibaca. Simpan ulang sebagai .docx lalu coba lagi.');
+  const d = new DOMParser().parseFromString(await f.async('string'), 'application/xml');
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const blocks = [];
+  for (const p of d.getElementsByTagNameNS(W, 'p')) {
+    let x = '';
+    for (const n of p.getElementsByTagNameNS('*', '*')) {
+      if (n.namespaceURI !== W) continue;
+      if (n.localName === 't') x += n.textContent;
+      else if (n.localName === 'tab' || n.localName === 'br') x += ' ';
+    }
+    x = clean(x); if (!x) continue;
+    const st = p.getElementsByTagNameNS(W, 'pStyle')[0];
+    const style = st ? (st.getAttributeNS(W, 'val') || st.getAttribute('w:val') || '') : '';
+    blocks.push({ t: /heading|judul|title/i.test(style) || (isHeadingLine(x) && x.length < 60) ? 'h' : 'p', x });
+  }
+  let title = '', author = '';
+  const core = zip.file('docProps/core.xml');
+  if (core) { const c = new DOMParser().parseFromString(await core.async('string'), 'application/xml'); title = c.getElementsByTagNameNS('*', 'title')[0]?.textContent || ''; author = c.getElementsByTagNameNS('*', 'creator')[0]?.textContent || ''; }
+  return { title: clean(title), author: clean(author), blocks };
+}
+
 /* ---------- State ---------- */
-const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false }, store('lg-settings', {}));
+const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false, narr: true, rate: 1, music: 'piano', vol: 0.5, flip: true, wpm: 200, goal: 15 }, store('lg-settings', {}));
 const P = store('lg-progress', {}); // bookId -> { b, w, marks: [[b,w]], t }
 let books = [];
 let quotes = [];
@@ -700,7 +814,7 @@ function readerSettled() {
   R.idx = k;
   const key = startKey(k), p = prog(R.book.id);
   p.b = key.b; p.w = key.w; p.t = Date.now(); saveProg();
-  if (view === 'read') { $('#topprog').style.width = ((k + 1) / R.pages.length * 100) + '%'; renderRail(); }
+  if (view === 'read') { $('#topprog').style.width = ((k + 1) / R.pages.length * 100) + '%'; renderRail(); pageStart(); }
 }
 
 function renderReaderEmpty() {
@@ -777,7 +891,7 @@ function feedSettled() {
   const H = feedEl.clientHeight; if (!H) return;
   F.idx = Math.round(feedEl.scrollTop / H);
   if (F.items.length && F.idx >= F.items.length - 3) appendFeed(5);
-  if (view === 'feed') renderRail();
+  if (view === 'feed') { renderRail(); pageStart(); }
   if (F.idx > 0 && !S.hinted) { S.hinted = true; saveSettings(); $('#hint').hidden = true; }
 }
 
@@ -834,9 +948,241 @@ function renderRail() {
     h += `<button class="ract mk ${marked ? 'on' : ''}" data-act="mark" aria-pressed="${marked}"><span class="ic">${IC.mark}</span>Tandai</button>`;
     h += `<button class="ract" data-act="toc"><span class="ic">${IC.list}</span>Isi</button>`;
   }
-  h += `<button class="ract" data-act="atur"><span class="ic"><span class="aa">Aa</span></span>Teks</button>`;
+  h += `<button class="ract snd ${Snd.on ? 'on' : ''}" data-act="sound" aria-pressed="${Snd.on}"><span class="ic">${Snd.on ? IC.sndOn : IC.sndOff}</span>${Snd.on ? 'Suara' : 'Senyap'}</button>`;
+  h += `<button class="ract ${Auto.on ? 'play' : ''}" data-act="auto" aria-pressed="${Auto.on}"><span class="ic">${Auto.on ? IC.pause : IC.play}</span>${Auto.on ? 'Jeda' : 'Otomatis'}</button>`;
   h += `<button class="ract" data-act="copy"><span class="ic">${IC.copy}</span>Salin</button>`;
   rail.innerHTML = h;
+}
+
+/* ---------- Sound: page flip, ambient music, narration ---------- */
+const Snd = { on: false, ctx: null, master: null, music: null };
+function audioCtx() {
+  if (!Snd.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    Snd.ctx = new AC(); Snd.master = Snd.ctx.createGain(); Snd.master.connect(Snd.ctx.destination);
+  }
+  if (Snd.ctx.state === 'suspended') Snd.ctx.resume();
+  return Snd.ctx;
+}
+let noiseBuf = null;
+function noise(ctx, secs, brown) {
+  const len = Math.floor(ctx.sampleRate * secs), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; if (brown) { last = (last + .02 * w) / 1.02; d[i] = last * 3.5; } else d[i] = w; }
+  return b;
+}
+function playFlip() {
+  if (!Snd.on || !S.flip) return;
+  const ctx = audioCtx(); if (!ctx) return;
+  noiseBuf = noiseBuf || noise(ctx, .4);
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = .9;
+  const g = ctx.createGain(); const t = ctx.currentTime;
+  bp.frequency.setValueAtTime(3200, t); bp.frequency.exponentialRampToValueAtTime(700, t + .26);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.32, t + .03); g.gain.exponentialRampToValueAtTime(.001, t + .3);
+  src.connect(bp).connect(g).connect(Snd.master); src.start(t); src.stop(t + .35);
+}
+function stopMusic() {
+  const m = Snd.music; if (!m) return; Snd.music = null;
+  clearTimeout(m.timer);
+  try { m.gain.gain.setTargetAtTime(0, Snd.ctx.currentTime, .4); } catch (e) {}
+  setTimeout(() => { m.nodes.forEach(n => { try { n.stop && n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} }); }, 1500);
+}
+function startMusic() {
+  stopMusic();
+  if (!Snd.on || S.music === 'off') return;
+  const ctx = audioCtx(); if (!ctx) return;
+  const gain = ctx.createGain(); gain.gain.value = 0; gain.connect(Snd.master);
+  gain.gain.setTargetAtTime(S.vol * .5, ctx.currentTime, .8);
+  const m = { gain, nodes: [gain], timer: 0, kind: S.music }; Snd.music = m;
+  if (S.music === 'hujan' || S.music === 'fokus') {
+    const src = ctx.createBufferSource(); src.buffer = noise(ctx, 4, S.music === 'fokus'); src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = S.music === 'hujan' ? 1400 : 500;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = S.music === 'hujan' ? 250 : 40;
+    const g = ctx.createGain(); g.gain.value = S.music === 'hujan' ? .35 : .6;
+    src.connect(hp).connect(lp).connect(g).connect(gain); src.start(); m.nodes.push(src, lp, hp, g);
+    if (S.music === 'hujan') {
+      const drop = () => {
+        if (Snd.music !== m) return;
+        const o = ctx.createOscillator(), og = ctx.createGain(), t = ctx.currentTime;
+        o.frequency.setValueAtTime(1800 + Math.random() * 2400, t); o.frequency.exponentialRampToValueAtTime(600, t + .05);
+        og.gain.setValueAtTime(.04 + Math.random() * .05, t); og.gain.exponentialRampToValueAtTime(.0001, t + .06);
+        o.connect(og).connect(gain); o.start(t); o.stop(t + .08);
+        m.timer = setTimeout(drop, 40 + Math.random() * 260);
+      };
+      drop();
+    }
+  } else if (S.music === 'piano') {
+    const delay = ctx.createDelay(); delay.delayTime.value = .42;
+    const fb = ctx.createGain(); fb.gain.value = .38;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
+    delay.connect(fb).connect(lp).connect(delay); lp.connect(gain); m.nodes.push(delay, fb, lp);
+    const scale = [261.63, 293.66, 329.63, 392, 440, 523.25, 587.33, 659.25, 783.99];
+    const bass = [130.81, 110, 174.61, 146.83];
+    let step = 0;
+    const note = (f, t, len, vol) => {
+      const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o2.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f * 2.001;
+      const g2 = ctx.createGain(); g2.gain.value = .12;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .015); g.gain.exponentialRampToValueAtTime(.0005, t + len);
+      o.connect(g); o2.connect(g2).connect(g); g.connect(gain); g.connect(delay);
+      o.start(t); o2.start(t); o.stop(t + len + .1); o2.stop(t + len + .1);
+    };
+    const tick = () => {
+      if (Snd.music !== m) return;
+      const t = ctx.currentTime + .05;
+      if (step % 4 === 0) note(bass[(step / 4) % bass.length], t, 4.5, .16);
+      if (Math.random() < .8) note(scale[Math.floor(Math.random() * scale.length)], t + Math.random() * .2, 2.8, .1);
+      if (Math.random() < .25) note(scale[Math.floor(Math.random() * scale.length)], t + .6, 2.4, .07);
+      step++;
+      m.timer = setTimeout(tick, 1100 + Math.random() * 700);
+    };
+    tick();
+  }
+}
+function setMusicVol() { if (Snd.music && Snd.ctx) Snd.music.gain.gain.setTargetAtTime(S.vol * .5, Snd.ctx.currentTime, .2); }
+
+const Narr = { token: 0, voice: null, speaking: false };
+const ttsOK = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+function pickVoice() {
+  if (!ttsOK) return null;
+  const vs = speechSynthesis.getVoices();
+  Narr.voice = vs.find(v => /^id/i.test(v.lang) && /google/i.test(v.name)) || vs.find(v => /^id/i.test(v.lang)) || vs.find(v => /^ms/i.test(v.lang)) || null;
+  return Narr.voice;
+}
+if (ttsOK) { pickVoice(); try { speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch (e) {} }
+const hlOK = !!(window.CSS && CSS.highlights && window.Highlight);
+function setHL(r) { if (hlOK) { try { CSS.highlights.set('narasi', new Highlight(r)); } catch (e) {} } }
+function clearHL() { if (hlOK) try { CSS.highlights.delete('narasi'); } catch (e) {} }
+function sentencesIn(box) {
+  const out = [];
+  for (const el of box.children) {
+    if (el.classList.contains('sep')) continue;
+    const tn = el.firstChild; if (!tn || tn.nodeType !== 3) continue;
+    const txt = tn.data, re = /[^.!?…]+[.!?…]+["”’)\]]*|[^.!?…]+$/g; let m;
+    while ((m = re.exec(txt))) {
+      const lead = m[0].length - m[0].trimStart().length, body = m[0].trim();
+      if (!body || !/[\p{L}\p{N}]/u.test(body)) continue;
+      const r = document.createRange(); r.setStart(tn, m.index + lead); r.setEnd(tn, m.index + lead + body.length);
+      out.push({ text: body, range: r, h: el.tagName === 'H2' });
+    }
+  }
+  return out;
+}
+function narrStop() {
+  Narr.token++; Narr.speaking = false; clearHL(); $('#nowplay').hidden = true;
+  if (ttsOK) try { speechSynthesis.cancel(); } catch (e) {}
+}
+function narrPage(box, onDone) {
+  narrStop();
+  const tok = Narr.token, list = sentencesIn(box);
+  if (!list.length) { onDone && onDone(); return; }
+  Narr.speaking = true; $('#nowplay').hidden = false;
+  $('#nowtxt').textContent = Narr.voice ? 'Membacakan halaman' : 'Membacakan halaman (suara bawaan perangkat)';
+  let i = 0;
+  const next = () => {
+    if (tok !== Narr.token) return;
+    if (i >= list.length) { Narr.speaking = false; clearHL(); $('#nowplay').hidden = true; onDone && onDone(); return; }
+    const s = list[i++]; setHL(s.range);
+    const u = new SpeechSynthesisUtterance(s.text);
+    u.lang = Narr.voice ? Narr.voice.lang : 'id-ID'; if (Narr.voice) u.voice = Narr.voice; u.rate = S.rate;
+    let done = false;
+    const fin = () => { if (done) return; done = true; clearTimeout(guard); setTimeout(next, s.h ? 350 : 60); };
+    const guard = setTimeout(fin, (s.text.length * 95) / S.rate + 5000);
+    u.onend = fin; u.onerror = fin;
+    try { speechSynthesis.speak(u); } catch (e) { fin(); }
+  };
+  setTimeout(next, 150);
+}
+
+/* ---------- Auto-advance ---------- */
+const Auto = { on: false, t: 0 };
+function curScroller() { return view === 'read' ? readEl : view === 'feed' ? feedEl : null; }
+function bar(ms) {
+  const ab = $('#autobar'), i = ab.firstElementChild;
+  ab.hidden = !Auto.on || (view !== 'feed' && view !== 'read');
+  i.style.transition = 'none'; i.style.transform = 'scaleX(0)';
+  if (!ms) return;
+  void i.offsetWidth;
+  i.style.transition = `transform ${ms}ms linear`; i.style.transform = 'scaleX(1)';
+}
+function pageWords(ctx) { return ctxText(ctx).split(/\s+/).filter(Boolean).length; }
+function autoNext() {
+  clearTimeout(Auto.t);
+  const sc = curScroller(); if (!Auto.on || !sc || $('#modal')) return;
+  const H = sc.clientHeight, k = Math.round(sc.scrollTop / H);
+  if (view === 'read' && k >= R.pages.length - 1) { setAuto(false); toast('Tamat. Buku ini selesai dibaca.'); return; }
+  sc.scrollTo({ top: (k + 1) * H, behavior: reduceMotion ? 'auto' : 'smooth' });
+}
+function setAuto(on) {
+  Auto.on = on; clearTimeout(Auto.t);
+  if (on) toast('Gulir otomatis aktif. Geser kapan saja untuk pindah manual.');
+  renderRail(); pageStart(true);
+}
+// Called whenever a new page comes to rest (manual swipe, auto turn, or view switch)
+let lastPage = '';
+function pageStart(force) {
+  const ctx = currentCtx();
+  const id = ctx ? view + ':' + ctx.book.id + ':' + ctx.start.b + ':' + ctx.start.w : '';
+  if (!force && id === lastPage) return;
+  const turned = lastPage && id !== lastPage && !force;
+  lastPage = id;
+  clearTimeout(Auto.t); narrStop(); bar(0);
+  if (!ctx || document.hidden) return;
+  if (turned) { playFlip(); countPage(); }
+  const box = ctx.sec && ctx.sec.querySelector('.text');
+  const speak = Snd.on && S.narr && ttsOK && box;
+  if (speak) {
+    if (Auto.on) bar(Math.max(4000, ctxText(ctx).length / (14 * S.rate) * 1000));
+    narrPage(box, () => { if (Auto.on) Auto.t = setTimeout(autoNext, 700); });
+  } else if (Auto.on) {
+    const ms = Math.max(5000, pageWords(ctx) / S.wpm * 60000);
+    bar(ms); Auto.t = setTimeout(autoNext, ms);
+  }
+}
+function pauseAll() { clearTimeout(Auto.t); narrStop(); bar(0); lastPage = ''; }
+async function setSound(on) {
+  Snd.on = on;
+  if (on) {
+    audioCtx();
+    if (S.narr && !ttsOK) toast('Perangkat ini tidak mendukung narasi suara. Musik dan efek tetap aktif.');
+    else if (S.narr && !Narr.voice && !pickVoice()) toast('Suara bahasa Indonesia tidak ditemukan, dipakai suara bawaan perangkat.');
+    else toast('Suara aktif');
+    startMusic();
+  } else { stopMusic(); toast('Suara dimatikan'); }
+  renderRail(); pageStart(true);
+}
+
+/* ---------- Learning stats ---------- */
+const ST = store('lg-stats', { days: {}, pages: {} });
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+let lastActive = Date.now(), goalToasted = false;
+['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastActive = Date.now(); }, { passive: true }));
+function countPage() { const d = today(); ST.pages[d] = (ST.pages[d] || 0) + 1; save('lg-stats', ST); }
+setInterval(() => {
+  if (document.hidden || (view !== 'read' && view !== 'feed') || $('#modal')) return;
+  if (!(Auto.on || Narr.speaking || Date.now() - lastActive < 120000)) return;
+  const d = today(); ST.days[d] = (ST.days[d] || 0) + 10; save('lg-stats', ST);
+  if (!goalToasted && ST.days[d] >= S.goal * 60 && ST.days[d] < S.goal * 60 + 10) { goalToasted = true; toast('Target belajar ' + S.goal + ' menit hari ini tercapai!'); }
+}, 10000);
+function streak() {
+  let n = 0; const d = new Date();
+  const key = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  if (!((ST.days[key(d)] || 0) >= 60)) d.setDate(d.getDate() - 1);
+  while ((ST.days[key(d)] || 0) >= 60) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function statsCard() {
+  const mins = Math.floor((ST.days[today()] || 0) / 60), pct = Math.min(100, Math.round(mins / S.goal * 100));
+  const names = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'], cols = [];
+  let max = S.goal;
+  const days = [];
+  for (let k = 6; k >= 0; k--) { const d = new Date(); d.setDate(d.getDate() - k); const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); const m = (ST.days[key] || 0) / 60; max = Math.max(max, m); days.push([names[d.getDay()], m, k === 0]); }
+  for (const [n, m, t] of days) cols.push(`<div class="${t ? 'today' : ''}"><i class="${m >= S.goal ? 'hit' : ''}" style="height:${Math.max(3, Math.round(m / max * 52))}px" title="${Math.round(m)} menit"></i>${n}</div>`);
+  return `<div class="stats" aria-label="Statistik belajar">
+    <div class="goal"><small>Belajar hari ini</small><b>${mins} / ${S.goal} menit</b><div class="bar"><i style="width:${pct}%"></i></div></div>
+    <div class="facts"><div><b>${streak()}</b><small>hari beruntun</small></div><div><b>${ST.pages[today()] || 0}</b><small>halaman hari ini</small></div></div>
+    <div class="week">${cols.join('')}</div></div>`;
 }
 
 /* ---------- Actions ---------- */
@@ -889,16 +1235,19 @@ function modal(html, onMount) {
   m.innerHTML = `<div class="msheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
   m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) closeModal(); });
   document.body.appendChild(m);
+  pauseAll();
   onMount && onMount(m);
   const f = m.querySelector('button, input, textarea'); f && f.focus({ preventScroll: true });
 }
-function closeModal() { const m = $('#modal'); if (m) m.remove(); }
+function closeModal() { const m = $('#modal'); if (m) { m.remove(); if (view === 'read' || view === 'feed') { renderRail(); setTimeout(() => pageStart(true), 50); } } }
 
 function openUpload() {
   modal(`<div class="mrow"><h3>Unggah buku</h3><button class="btn ghost small" data-close>Tutup</button></div>
-    <label class="drop" id="drop" for="fileIn">${IC.up.replace('<svg', '<svg aria-hidden="true"')}
-      <b>Pilih file atau tarik ke sini</b><small>Teks dipecah otomatis menjadi halaman seukuran layarmu.</small>
-      <span class="fmts"><span>TXT</span><span>MD</span><span>PDF</span><span>EPUB</span></span></label>
+    <div class="drop" id="drop">${IC.up.replace('<svg', '<svg aria-hidden="true"')}
+      <b>Ketuk untuk memilih file</b><small>atau tarik file ke kotak ini. Teks dipecah otomatis menjadi halaman seukuran layarmu.</small>
+      <span class="fmts"><span>PDF</span><span>EPUB</span><span>DOCX</span><span>TXT</span><span>MD</span></span>
+      <span class="btn small pickbtn">Pilih file</span>
+      <input type="file" id="fileIn" class="filehit" aria-label="Pilih file buku"></div>
     <div class="divider">atau tempel teks</div>
     <div class="two"><label class="field">Judul<input id="pTitle" placeholder="Judul buku"></label><label class="field">Penulis<input id="pAuthor" placeholder="Nama penulis"></label></div>
     <label class="field">Isi<textarea id="pText" placeholder="Tempel isi bukumu di sini. Pisahkan paragraf dengan baris kosong. Baris seperti “Bab 1” menjadi judul bab."></textarea></label>
@@ -908,7 +1257,8 @@ function openUpload() {
     const drop = m.querySelector('#drop');
     ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
     ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-    drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) { closeModal(); handleFile(f); } });
+    drop.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) { closeModal(); handleFile(f); } });
+    m.querySelector('#fileIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) { closeModal(); handleFile(f); } });
     m.querySelector('#pSave').addEventListener('click', async () => {
       const text = m.querySelector('#pText').value;
       const blocks = parsePlain(text);
@@ -921,7 +1271,7 @@ function openUpload() {
 
 function openSettings() {
   const papers = [['auto', 'Ikuti sistem', 'linear-gradient(135deg,#fbfaf5 50%,#1b1c19 50%)'], ['kertas', 'Kertas', '#fbfaf5'], ['sepia', 'Sepia', '#f1e5cd'], ['malam', 'Malam', '#1b1c19']];
-  modal(`<div class="mrow"><h3>Tampilan halaman</h3><button class="btn ghost small" data-close>Selesai</button></div>
+  modal(`<div class="mrow"><h3>Atur bacaan</h3><button class="btn ghost small" data-close>Selesai</button></div>
     <div class="lbl">Warna kertas</div>
     <div class="seg" id="sPaper">${papers.map(p => `<button data-v="${p[0]}" aria-pressed="${S.paper === p[0]}"><span class="swatch" style="background:${p[2]}"></span>${p[1]}</button>`).join('')}</div>
     <div class="lbl">Huruf</div>
@@ -929,7 +1279,26 @@ function openSettings() {
     <label class="lbl" for="sFs">Ukuran huruf</label>
     <div class="range"><input type="range" id="sFs" min="15" max="26" step="1" value="${S.fs}"><output id="oFs">${S.fs} px</output></div>
     <label class="lbl" for="sLh">Jarak baris</label>
-    <div class="range"><input type="range" id="sLh" min="1.35" max="2" step="0.05" value="${S.lh}"><output id="oLh">${(+S.lh).toFixed(2)}</output></div>`,
+    <div class="range"><input type="range" id="sLh" min="1.35" max="2" step="0.05" value="${S.lh}"><output id="oLh">${(+S.lh).toFixed(2)}</output></div>
+    <div class="group"><h4>Suara</h4>
+      <label class="sw">Suara aktif<input type="checkbox" id="sSnd" ${Snd.on ? 'checked' : ''}></label>
+      <label class="sw">Bacakan halaman (narasi)<input type="checkbox" id="sNarr" ${S.narr ? 'checked' : ''}></label>
+      ${ttsOK ? '' : '<p class="note">Peramban ini tidak mendukung narasi suara.</p>'}
+      <label class="lbl" for="sRate">Kecepatan narasi</label>
+      <div class="range"><input type="range" id="sRate" min="0.7" max="1.6" step="0.1" value="${S.rate}"><output id="oRate">${(+S.rate).toFixed(1)}×</output></div>
+      <div class="lbl">Musik latar</div>
+      <div class="seg" id="sMusic">${[['off', 'Mati'], ['piano', 'Piano'], ['hujan', 'Hujan'], ['fokus', 'Fokus']].map(o => `<button data-v="${o[0]}" aria-pressed="${S.music === o[0]}">${o[1]}</button>`).join('')}</div>
+      <label class="lbl" for="sVol">Volume musik</label>
+      <div class="range"><input type="range" id="sVol" min="0" max="1" step="0.05" value="${S.vol}"><output id="oVol">${Math.round(S.vol * 100)}%</output></div>
+      <label class="sw">Bunyi balik halaman<input type="checkbox" id="sFlip" ${S.flip ? 'checked' : ''}></label></div>
+    <div class="group"><h4>Gulir otomatis</h4>
+      <label class="sw">Aktifkan gulir otomatis<input type="checkbox" id="sAuto" ${Auto.on ? 'checked' : ''}></label>
+      <label class="lbl" for="sWpm">Kecepatan baca</label>
+      <div class="range"><input type="range" id="sWpm" min="100" max="400" step="10" value="${S.wpm}"><output id="oWpm">${S.wpm} kata/mnt</output></div>
+      <p class="note">Halaman berganti setelah waktu baca habis. Jika narasi aktif, halaman berganti setelah selesai dibacakan. Geser kapan saja untuk pindah manual.</p></div>
+    <div class="group"><h4>Target belajar harian</h4>
+      <div class="range"><input type="range" id="sGoal" min="5" max="90" step="5" value="${S.goal}" aria-label="Target menit per hari"><output id="oGoal">${S.goal} mnt</output></div>
+      <p class="note">Waktu baca dihitung saat kamu aktif membaca. Lihat kemajuan dan hari beruntun di Rak.</p></div>`,
   m => {
     const seg = (id, key) => m.querySelector(id).addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -937,6 +1306,16 @@ function openSettings() {
       saveSettings(); applySettings(); relayoutSoon();
     });
     seg('#sPaper', 'paper'); seg('#sFont', 'font');
+    m.querySelector('#sMusic').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.music = b.dataset.v; m.querySelectorAll('#sMusic button').forEach(x => x.setAttribute('aria-pressed', x === b)); saveSettings(); if (S.music !== 'off' && !Snd.on) { Snd.on = true; m.querySelector('#sSnd').checked = true; } startMusic(); });
+    const rng = (id, key, out, fmt, after) => m.querySelector(id).addEventListener('input', e => { S[key] = +e.target.value; m.querySelector(out).textContent = fmt(S[key]); saveSettings(); after && after(); });
+    rng('#sRate', 'rate', '#oRate', v => v.toFixed(1) + '×');
+    rng('#sVol', 'vol', '#oVol', v => Math.round(v * 100) + '%', setMusicVol);
+    rng('#sWpm', 'wpm', '#oWpm', v => v + ' kata/mnt');
+    rng('#sGoal', 'goal', '#oGoal', v => v + ' mnt');
+    m.querySelector('#sSnd').addEventListener('change', e => { Snd.on = e.target.checked; if (Snd.on) { audioCtx(); startMusic(); } else stopMusic(); });
+    m.querySelector('#sNarr').addEventListener('change', e => { S.narr = e.target.checked; saveSettings(); });
+    m.querySelector('#sFlip').addEventListener('change', e => { S.flip = e.target.checked; saveSettings(); });
+    m.querySelector('#sAuto').addEventListener('change', e => { Auto.on = e.target.checked; });
     m.querySelector('#sFs').addEventListener('input', e => { S.fs = +e.target.value; m.querySelector('#oFs').textContent = S.fs + ' px'; saveSettings(); applySettings(); relayoutSoon(); });
     m.querySelector('#sLh').addEventListener('input', e => { S.lh = +e.target.value; m.querySelector('#oLh').textContent = S.lh.toFixed(2); saveSettings(); applySettings(); relayoutSoon(); });
   });
@@ -982,7 +1361,9 @@ async function handleFile(file) {
     if (['txt', 'md', 'markdown', 'text'].includes(ext) || file.type.startsWith('text/')) res = { blocks: parsePlain(await file.text()) };
     else if (ext === 'pdf') res = await parsePdf(await file.arrayBuffer(), f => busyMsg('Membaca PDF… ' + Math.round(f * 100) + '%'));
     else if (ext === 'epub') res = await parseEpub(await file.arrayBuffer());
-    else throw new Error('Format .' + ext + ' belum didukung. Gunakan .txt, .md, .pdf, atau .epub.');
+    else if (ext === 'docx') res = await parseDocx(await file.arrayBuffer());
+    else if (ext === 'doc') throw new Error('File .doc lama belum didukung. Simpan ulang sebagai .docx atau PDF.');
+    else throw new Error('Format .' + ext + ' belum didukung. Gunakan PDF, EPUB, DOCX, TXT, atau MD.');
     const nWords = res.blocks.reduce((n, b) => n + (b.t === 'p' ? b.x.split(' ').length : 0), 0);
     if (nWords < 15) throw new Error('Tidak ada teks yang bisa dibaca di file ini. PDF hasil pindaian (gambar) belum didukung.');
     const base = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
@@ -1007,7 +1388,7 @@ function renderRak() {
       <div class="bact"><button class="btn small" data-act="read" data-id="${b.id}">${pct > 0 ? 'Lanjutkan' : 'Baca'}</button><button class="btn ghost small" data-act="del" data-id="${b.id}">Hapus</button></div>
     </article>`;
   }).join('');
-  el.innerHTML = `<div class="panel-in"><h1>Rak buku</h1><p class="sub">${books.length} buku · tersimpan di perangkat ini</p>
+  el.innerHTML = `<div class="panel-in"><h1>Rak buku</h1><p class="sub">${books.length} buku · tersimpan di perangkat ini</p>${statsCard()}
     <div class="shelf">${cards}<button class="addcard" data-act="upload">${IC.up}Unggah buku</button></div></div>`;
 }
 function renderSimpan() {
@@ -1035,8 +1416,9 @@ async function show(v, opts = {}) {
     else goPage(R.idx, false);
     renderRail();
   }
-  if (v === 'rak') { renderRak(); rail.hidden = true; }
-  if (v === 'simpan') { renderSimpan(); rail.hidden = true; }
+  if (v === 'rak') { pauseAll(); renderRak(); rail.hidden = true; }
+  if (v === 'feed' || v === 'read') pageStart(true); else $('#autobar').hidden = true;
+  if (v === 'simpan') { pauseAll(); renderSimpan(); rail.hidden = true; }
 }
 
 let relayoutT;
@@ -1069,6 +1451,8 @@ document.addEventListener('click', e => {
     case 'upload': openUpload(); break;
     case 'atur': openSettings(); break;
     case 'like': toggleLike(false); break;
+    case 'sound': setSound(!Snd.on); break;
+    case 'auto': setAuto(!Auto.on); break;
     case 'mark': toggleMark(); break;
     case 'toc': openToc(); break;
     case 'copy': copyPage(); break;
@@ -1086,7 +1470,6 @@ document.addEventListener('click', e => {
 });
 $('#tabFeed').addEventListener('click', () => show('feed'));
 $('#tabRead').addEventListener('click', () => show('read'));
-$('#fileIn').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) { closeModal(); handleFile(f); } });
 
 // Tap = hide/show controls, double tap = save page (like a heart on a video)
 let lastTap = 0, tapT;
@@ -1103,10 +1486,13 @@ let lastTap = 0, tapT;
   tapT = setTimeout(() => app.classList.toggle('immersive'), 330);
 }));
 
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseAll(); else if (view === 'read' || view === 'feed') pageStart(true); });
 document.addEventListener('keydown', e => {
   if ($('#modal')) { if (e.key === 'Escape') closeModal(); return; }
   if (e.target.closest && e.target.closest('input, textarea')) return;
   const sc = view === 'read' ? readEl : view === 'feed' ? feedEl : null; if (!sc) return;
+  if (e.key === 'm') { setSound(!Snd.on); return; }
+  if (e.key === 'a') { setAuto(!Auto.on); return; }
   const H = sc.clientHeight, k = Math.round(sc.scrollTop / H);
   let d = 0;
   if (['ArrowDown', 'PageDown', ' ', 'j'].includes(e.key)) d = 1;
@@ -1124,12 +1510,19 @@ async function boot() {
   const q = await DB.all('quotes');
   quotes = (q || []).sort((a, b) => b.at - a.at);
   books = (stored || []).sort((a, b) => (P[b.id]?.t || b.added) - (P[a.id]?.t || a.added));
-  if (!books.length && !store('lg-seeded', false)) {
+  const seeded = store('lg-seeded', 0);
+  if (!books.length && !seeded) {
     const a = await addBook({ title: 'Jam Pasir di Atas Lemari', author: 'Naskah contoh', blocks: parsePlain(SAMPLE_A) }, true);
     const b = await addBook({ title: 'Membaca Pelan di Zaman Cepat', author: 'Esai contoh', blocks: parsePlain(SAMPLE_B) }, true);
     a.sample = b.sample = true; await DB.put('books', a); await DB.put('books', b);
     books = [a, b];
-    if (DB.ok) save('lg-seeded', true);
+    if (DB.ok) save('lg-seeded', 1);
+  }
+  if (+store('lg-seeded', 0) < 2) {
+    const c = await addBook({ title: 'Belajar Cerdas: 4 Cara yang Terbukti', author: 'Panduan contoh', blocks: parsePlain(SAMPLE_C) }, true);
+    c.sample = true; await DB.put('books', c);
+    if (!books.includes(c)) books.unshift(c);
+    if (DB.ok) save('lg-seeded', 2);
   }
   books.forEach(b => { if (!b.color) b.color = hashColor(b.title + b.author); });
   if (S.current && !bookById(S.current)) S.current = books[0]?.id || null;
