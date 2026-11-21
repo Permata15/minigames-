@@ -1249,8 +1249,8 @@ function deviceSpeak(tok, box, lang, texts, els, done) {
     const u = new SpeechSynthesisUtterance(texts[k]); u.lang = voice ? voice.lang : lang; if (voice) u.voice = voice; u.rate = S.rate;
     let fin0 = false; const fin = () => { if (fin0) return; fin0 = true; clearTimeout(g); setTimeout(next, 120); };
     const g = setTimeout(fin, texts[k].length * 110 / S.rate + 6000);
-    u.onend = fin; u.onerror = fin;
-    try { speechSynthesis.speak(u); } catch (e) { fin(); }
+    u.onend = fin; u.onerror = ev => { speechErr(ev); fin(); };
+    try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) { fin(); }
   };
   setTimeout(next, 150);
 }
@@ -1268,8 +1268,8 @@ function deviceOriginal(tok, box, done) {
     let fin0 = false;
     const fin = () => { if (fin0) return; fin0 = true; clearTimeout(guard); setTimeout(next, s.h ? 350 : 60); };
     const guard = setTimeout(fin, (s.text.length * 95) / S.rate + 5000);
-    u.onend = fin; u.onerror = fin;
-    try { speechSynthesis.speak(u); } catch (e) { fin(); }
+    u.onend = fin; u.onerror = ev => { speechErr(ev); fin(); };
+    try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) { fin(); }
   };
   setTimeout(next, 150);
 }
@@ -1309,6 +1309,7 @@ function pageStart(force) {
   lastPage = id;
   const box = ctx && ctx.sec && ctx.sec.querySelector('.text');
   const speak = !!(ctx && !document.hidden && Snd.on && S.narr && (ttsOK || Narr.t) && box);
+  if (ctx && Snd.on && S.narr && !ttsOK && !Narr.t && !Tr.noVoiceShown) { Tr.noVoiceShown = true; toast(NO_VOICE); }
   clearTimeout(Auto.t); narrStop(speak); bar(0);
   showCaption(document.hidden ? null : ctx, id);
   if (!ctx || document.hidden) return;
@@ -1322,11 +1323,58 @@ function pageStart(force) {
   }
 }
 function pauseAll() { clearTimeout(Auto.t); narrStop(); bar(0); lastPage = ''; Cap.pageId = ''; $('#caption').hidden = true; }
+// Mobile browsers (iOS above all) only allow speech that starts inside a tap: speak a silent
+// utterance during the tap so later page-by-page narration is allowed.
+function unlockSpeech() {
+  if (!ttsOK) return;
+  try { speechSynthesis.cancel(); speechSynthesis.resume(); const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'id-ID'; speechSynthesis.speak(u); } catch (e) {}
+}
+let speechErrShown = '';
+function speechErr(ev) {
+  const code = ev && ev.error; if (!code || code === 'interrupted' || code === 'canceled' || speechErrShown === code) return;
+  speechErrShown = code;
+  toast(code === 'not-allowed' ? 'Browser memblokir suara. Ketuk tombol Suara sekali lagi.'
+    : code === 'synthesis-unavailable' || code === 'voice-unavailable' || code === 'language-unavailable' ? 'Suara untuk bahasa ini belum terpasang di perangkat. Coba bahasa lain atau buka di Chrome.'
+    : 'Suara perangkat gagal diputar (' + code + '). Buka Atur, lalu tekan Tes suara.');
+}
+const NO_VOICE = 'Tampilan ini tidak bisa membacakan teks. Buka link aplikasi di Chrome atau Edge (bukan di dalam aplikasi Claude di HP), lalu nyalakan Suara lagi.';
+async function testVoice(out) {
+  const rows = []; const put = (i, txt) => { rows[i] = txt; out.innerHTML = rows.map(r => '<div>' + esc(r) + '</div>').join(''); };
+  out.hidden = false;
+  let devIdx = -1;
+  // Device voice test runs first and synchronously, inside the tap
+  if (ttsOK) {
+    const vs = speechSynthesis.getVoices();
+    devIdx = 1;
+    put(1, 'Suara perangkat: ' + (vs.length ? vs.length + ' suara terpasang, bahasa Indonesia ' + (vs.some(v => /^id/i.test(v.lang)) ? 'ada' : 'tidak ada') : 'daftar suara kosong') + '. Mencoba memutar…');
+    if (!Narr.t) {
+      let started = false;
+      try {
+        speechSynthesis.cancel(); speechSynthesis.resume();
+        const u = new SpeechSynthesisUtterance('Halo, ini tes suara perangkat.'); u.lang = (Narr.voice && Narr.voice.lang) || 'id-ID'; if (Narr.voice) u.voice = Narr.voice; u.rate = S.rate;
+        u.onstart = () => { started = true; put(1, 'Suara perangkat: berhasil diputar. Kalau tidak terdengar, naikkan volume dan matikan mode senyap.'); };
+        u.onerror = ev => { started = true; put(1, 'Suara perangkat: gagal (' + (ev.error || 'tidak diketahui') + ').'); };
+        speechSynthesis.speak(u);
+        setTimeout(() => { if (!started) put(1, 'Suara perangkat: tidak mulai berbunyi. Browser ini kemungkinan tidak mendukung suara. Buka link di Chrome atau Edge.'); }, 4000);
+      } catch (e) { put(1, 'Suara perangkat: gagal (' + e.message + ').'); }
+    } else put(1, rows[1].replace(' Mencoba memutar…', ''));
+  } else put(1, 'Suara perangkat: browser ini tidak mendukung pembacaan teks.');
+  if (Narr.blocked) put(0, 'Suara AI Claude: dimatikan untuk aplikasi ini. Nyalakan lagi lewat menu Izin artifact.');
+  else if (!Narr.t) put(0, 'Suara AI Claude: tidak tersedia di tampilan ini (aplikasi Claude di HP, Safari, Firefox, atau file di luar Claude).');
+  else {
+    put(0, 'Suara AI Claude: mencoba memutar…');
+    try { await Narr.t.speak('Halo, ini tes suara.', { voice: S.voice, language: 'id', rate: Math.min(1.5, Math.max(.7, S.rate)) }); put(0, 'Suara AI Claude: berhasil diputar.'); }
+    catch (e) { put(0, 'Suara AI Claude: gagal (' + ((e && e.code) || 'tidak diketahui') + ').' + (e && e.code === 'no_gesture' ? ' Ketuk tombol tes sekali lagi.' : '')); }
+  }
+}
+
 async function setSound(on) {
+  if (on) unlockSpeech();
   Snd.on = on;
   if (on) {
     audioCtx();
-    if (S.narr && !ttsOK && !Narr.t) toast('Perangkat ini tidak mendukung narasi suara. Musik dan efek tetap aktif.');
+    speechErrShown = '';
+    if (S.narr && !ttsOK && !Narr.t) toast(NO_VOICE);
     else if (S.narr && !Narr.t && S.lang === 'asli' && !Narr.voice && !pickVoice()) toast('Suara bahasa Indonesia tidak ditemukan, dipakai suara bawaan perangkat.');
     else toast('Suara aktif');
     startMusic();
@@ -1371,7 +1419,7 @@ let toastT;
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
-  document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2200);
+  document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(() => t.remove(), Math.min(7000, 1800 + msg.length * 45));
 }
 function burst(x, y) {
   const b = document.createElement('div'); b.className = 'burst'; b.innerHTML = IC.heart;
@@ -1464,7 +1512,8 @@ function openSettings() {
     <div class="group"><h4>Suara</h4>
       <label class="sw">Suara aktif<input type="checkbox" id="sSnd" ${Snd.on ? 'checked' : ''}></label>
       <label class="sw">Bacakan halaman (narasi)<input type="checkbox" id="sNarr" ${S.narr ? 'checked' : ''}></label>
-      <button class="btn ghost small" data-act="lang" style="justify-self:start">Bahasa baca: ${esc(langLabel(S.lang))}</button>
+      <div class="bact"><button class="btn small" id="sTest">Tes suara</button><button class="btn ghost small" data-act="lang">Bahasa baca: ${esc(langLabel(S.lang))}</button></div>
+      <div class="note" id="sTestOut" hidden style="display:grid;gap:6px;margin:0"></div>
       <label class="lbl" for="sRate">Kecepatan narasi</label>
       <div class="range"><input type="range" id="sRate" min="0.7" max="1.6" step="0.1" value="${S.rate}"><output id="oRate">${(+S.rate).toFixed(1)}×</output></div>
       <div class="lbl">Musik latar</div>
@@ -1496,6 +1545,7 @@ function openSettings() {
     m.querySelector('#sSnd').addEventListener('change', e => { Snd.on = e.target.checked; if (Snd.on) { audioCtx(); startMusic(); } else stopMusic(); });
     m.querySelector('#sNarr').addEventListener('change', e => { S.narr = e.target.checked; saveSettings(); });
     m.querySelector('#sFlip').addEventListener('change', e => { S.flip = e.target.checked; saveSettings(); });
+    m.querySelector('#sTest').addEventListener('click', () => testVoice(m.querySelector('#sTestOut')));
     m.querySelector('#sAuto').addEventListener('change', e => { Auto.on = e.target.checked; });
     m.querySelector('#sFs').addEventListener('input', e => { S.fs = +e.target.value; m.querySelector('#oFs').textContent = S.fs + ' px'; saveSettings(); applySettings(); relayoutSoon(); });
     m.querySelector('#sLh').addEventListener('input', e => { S.lh = +e.target.value; m.querySelector('#oLh').textContent = S.lh.toFixed(2); saveSettings(); applySettings(); relayoutSoon(); });
@@ -1507,6 +1557,8 @@ function openLang() {
     <p class="note" style="margin:0">Pilih bahasa, lalu nyalakan tombol Suara. Tiap halaman diterjemahkan otomatis lalu dibacakan suara AI. Teks asli tetap tampil di halaman agar bisa dibandingkan.</p>
     <div class="langs" id="lList">${LANGS.map(l => `<button data-v="${l[0]}" aria-pressed="${S.lang === l[0]}"><span>${l[1]}</span><small>${l[2] || 'ASLI'}</small></button>`).join('')}</div>
     <label class="sw">Tampilkan teks terjemahan<input type="checkbox" id="lCap" ${S.cap ? 'checked' : ''}></label>
+    <div class="bact"><button class="btn small" id="lTest">Tes suara</button></div>
+    <div class="note" id="lTestOut" hidden style="display:grid;gap:6px;margin:0"></div>
     <div class="lbl">Suara AI</div>
     <div class="seg" id="lVoice">${VOICES.map(v => `<button data-v="${v[0]}" aria-pressed="${S.voice === v[0]}">${v[1]}</button>`).join('')}</div>
     <p class="note">Suara AI tersedia saat aplikasi dibuka di Claude lewat Chrome, Edge, atau aplikasi desktop. Di tempat lain dipakai suara bawaan perangkat. Terjemahan memakai kuota Claude akunmu.</p>`,
@@ -1517,6 +1569,7 @@ function openLang() {
       m.querySelectorAll('#lList button').forEach(x => x.setAttribute('aria-pressed', x === b));
     });
     m.querySelector('#lCap').addEventListener('change', e => { S.cap = e.target.checked; saveSettings(); });
+    m.querySelector('#lTest').addEventListener('click', () => testVoice(m.querySelector('#lTestOut')));
     m.querySelector('#lVoice').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       S.voice = b.dataset.v; saveSettings();
