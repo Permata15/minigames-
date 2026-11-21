@@ -379,6 +379,31 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 (() => {
 'use strict';
 
+/* ---------- Android app: device text-to-speech in place of the missing speechSynthesis ---------- */
+(function androidSpeech() {
+  const A = window.AndroidTTS;
+  if (!A || ('speechSynthesis' in window && window.speechSynthesis)) return;
+  let seq = 0, voices = null; const pending = {};
+  window.__ttsEvent = (id, type, err) => {
+    const u = pending[id]; if (!u) return;
+    if (type === 'start') { u.onstart && u.onstart({}); return; }
+    delete pending[id];
+    if (type === 'end') u.onend && u.onend({}); else u.onerror && u.onerror({ error: err || 'synthesis-failed' });
+  };
+  function Utterance(text) { this.text = text || ''; this.lang = ''; this.rate = 1; this.pitch = 1; this.volume = 1; this.voice = null; this.onstart = this.onend = this.onerror = null; }
+  window.SpeechSynthesisUtterance = Utterance;
+  const listeners = [];
+  window.speechSynthesis = {
+    speak(u) { const id = 'u' + (++seq); pending[id] = u; try { A.speak(id, String(u.text), (u.voice && u.voice.lang) || u.lang || '', +u.rate || 1, u.volume == null ? 1 : +u.volume); } catch (e) { delete pending[id]; u.onerror && u.onerror({ error: 'synthesis-failed' }); } },
+    cancel() { const ids = Object.keys(pending); ids.forEach(k => { const u = pending[k]; delete pending[k]; u.onerror && u.onerror({ error: 'interrupted' }); }); try { A.stop(); } catch (e) {} },
+    pause() {}, resume() {},
+    getVoices() { if (!voices || !voices.length) { try { voices = JSON.parse(A.voices()).map(v => ({ name: v.name, lang: v.lang, voiceURI: v.lang, localService: true, default: false })); } catch (e) { voices = []; } } return voices; },
+    addEventListener(ev, fn) { if (ev === 'voiceschanged') listeners.push(fn); },
+    get speaking() { return Object.keys(pending).length > 0; },
+  };
+  window.__ttsReady = () => { voices = null; listeners.forEach(fn => { try { fn(); } catch (e) {} }); };
+})();
+
 /* ---------- Icons ---------- */
 const IC = {
   heart: '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.5-9.2C1.2 7.6 3.4 4.5 6.8 4.5c2.1 0 3.6 1.2 5.2 3 1.6-1.8 3.1-3 5.2-3 3.4 0 5.6 3.1 4.3 6.8-2 4.6-9.5 9.2-9.5 9.2z"/></svg>',
@@ -2065,7 +2090,26 @@ async function boot() {
   if (S.current && !bookById(S.current)) S.current = books[0]?.id || null;
   await show('feed');
 }
-boot();
+/* ---------- Android app hooks: back button, shared text, "Artinya?" from other apps ---------- */
+let booted = false; const fromAndroidQueue = [];
+window.__back = () => {
+  if ($('#modal')) { closeModal(); return true; }
+  if (view !== 'feed') { show('feed'); return true; }
+  return false;
+};
+function handleFromAndroid(raw) {
+  let d; try { d = JSON.parse(raw); } catch (e) { return; }
+  if (!d || !d.text) return;
+  if (d.type === 'word') { openDict(d.text.slice(0, 200), '', null); return; }
+  const text = String(d.text);
+  if (/^\s*https?:\/\/\S+\s*$/.test(text)) { toast('Yang dibagikan hanya tautan. Salin teks artikelnya, lalu bagikan teksnya ke Lembar Gulir.'); return; }
+  openUpload();
+  const t = $('#pText'), ti = $('#pTitle');
+  if (t) t.value = text;
+  if (ti && d.title) ti.value = d.title;
+}
+window.__fromAndroid = raw => { if (booted) handleFromAndroid(raw); else fromAndroidQueue.push(raw); };
+boot().then(() => { booted = true; fromAndroidQueue.splice(0).forEach(handleFromAndroid); });
 })();
 </script>
 

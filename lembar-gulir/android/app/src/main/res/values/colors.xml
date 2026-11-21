@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="chrome">#F3F2ED</color>
+    <color name="paper">#D6D3CA</color>
+    <color name="accent">#1B6A57</color>
+    <color name="icon_bg">#1B6A57</color>
+</resources>
