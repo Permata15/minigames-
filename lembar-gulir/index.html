@@ -727,7 +727,7 @@ async function parseDocx(buf) {
 }
 
 /* ---------- State ---------- */
-const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false, narr: true, rate: 1, music: 'piano', vol: 0.5, flip: true, wpm: 200, goal: 15, lang: 'asli', cap: true, voice: 'buttery', wordMode: false, dictLangs: ['en', 'ar', 'zh', 'ja'] }, store('lg-settings', {}));
+const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false, narr: true, rate: 1, music: 'piano', vol: 0.5, flip: true, wpm: 200, goal: 15, lang: 'asli', cap: true, voice: 'buttery', autoLang: true, wordMode: false, dictLangs: ['en', 'ar', 'zh', 'ja'] }, store('lg-settings', {}));
 const P = store('lg-progress', {}); // bookId -> { b, w, marks: [[b,w]], t }
 let books = [];
 let quotes = [];
@@ -1155,7 +1155,7 @@ function sentencesIn(box) {
   for (const el of box.children) {
     if (el.classList.contains('sep')) continue;
     const tn = el.firstChild; if (!tn || tn.nodeType !== 3) continue;
-    const txt = tn.data, re = /[^.!?…]+[.!?…]+["”’)\]]*|[^.!?…]+$/g; let m;
+    const txt = tn.data, re = /[^.!?…。！？]+[.!?…。！？]+["”’)\]」』]*|[^.!?…。！？]+$/g; let m;
     while ((m = re.exec(txt))) {
       const lead = m[0].length - m[0].trimStart().length, body = m[0].trim();
       if (!body || !/[\p{L}\p{N}]/u.test(body)) continue;
@@ -1165,6 +1165,129 @@ function sentencesIn(box) {
   }
   return out;
 }
+/* ---------- Automatic language detection (offline), so each passage is read in its own language ---------- */
+const LNAME = { id: 'Indonesia', en: 'Inggris', de: 'Jerman', fr: 'Prancis', es: 'Spanyol', pt: 'Portugis', nl: 'Belanda', it: 'Italia', tr: 'Turki', ar: 'Arab', zh: 'Mandarin', ja: 'Jepang', ko: 'Korea', ru: 'Rusia', hi: 'Hindi', el: 'Yunani', he: 'Ibrani', th: 'Thai', ms: 'Melayu', sv: 'Swedia', pl: 'Polandia' };
+const LTAG = { id: 'id-ID', en: 'en-US', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', pt: 'pt-BR', nl: 'nl-NL', it: 'it-IT', tr: 'tr-TR', ar: 'ar-SA', zh: 'zh-CN', ja: 'ja-JP', ko: 'ko-KR', ru: 'ru-RU', hi: 'hi-IN', el: 'el-GR', he: 'he-IL', th: 'th-TH', ms: 'ms-MY', sv: 'sv-SE', pl: 'pl-PL' };
+const STOP = (() => {
+  const raw = {
+    id: 'yang dan di ke dari ini itu dengan untuk tidak ada akan pada juga saya kamu dia mereka kita kami sudah belum bisa karena atau tetapi seperti lebih dalam oleh adalah sebagai bahwa jika apa tak lagi hanya masih saat setelah sangat aku kau begitu kalau sebuah seorang telah sedang harus',
+    en: 'the and of to in is that it was for on are with as be at by this have from or an but not they you he she we his her which their there what been were has had would will can if about when who all so more one my me your our its into than then them these those do does did',
+    de: 'der die das und ist nicht ich du er sie es wir ihr ein eine einen einem dem den des zu mit auf für von im auch sich als aber wie noch nach bei aus wenn nur oder war hat sind werden kann mein dein sehr schon doch hier dass habe',
+    fr: 'le la les et est un une des du de que qui ne pas pour dans sur avec il elle nous vous ils elles au aux ce cette mais ou son sa ses plus par se sont été être fait comme je tu mon ma très tout bien',
+    es: 'el la los las y es un una de que en no por con para se del al lo como más pero sus su le ya está son fue ha muy también yo él ella tiene hay esto esta este cuando porque todo',
+    pt: 'o a os as e é um uma de que em não por com para se do da dos das no na ao mais mas como foi são ele ela você também muito já tem isso esta este quando porque eu',
+    nl: 'de het een en is van in dat op te niet zijn met voor er maar ook als bij ik je hij zij wij was aan om door naar dan wat nog heb heeft hebben wordt',
+    it: 'il lo la i gli le e è un una di che in non per con su del della dei delle da al ma come più anche sono era ha questo questa ci si mi ti',
+    tr: 've bir bu da de ile için çok ama ne var yok olarak gibi daha sonra kadar ben sen biz siz onlar mi mı değil ki şey',
+    sv: 'och att det som en på är av för med till den har inte om ett han hon var jag du de vi',
+    pl: 'i w na z że do nie się to jest jak ale co tak od po za dla jego jej są był była',
+  };
+  const out = {}; for (const k in raw) out[k] = new Set(raw[k].split(' ')); return out;
+})();
+const SCRIPTS = [['ar', /\p{Script=Arabic}/gu], ['he', /\p{Script=Hebrew}/gu], ['ru', /\p{Script=Cyrillic}/gu], ['el', /\p{Script=Greek}/gu], ['hi', /\p{Script=Devanagari}/gu], ['th', /\p{Script=Thai}/gu], ['ko', /\p{Script=Hangul}/gu], ['ja', /[\p{Script=Hiragana}\p{Script=Katakana}]/gu], ['zh', /\p{Script=Han}/gu]];
+function detectLang(text) {
+  const letters = (text.match(/\p{L}/gu) || []).length;
+  if (!letters) return { lang: '', conf: false };
+  // Non-Latin scripts decide on their own
+  const counts = {};
+  for (const [l, re] of SCRIPTS) counts[l] = (text.match(re) || []).length;
+  if (counts.ja && counts.ja + counts.zh > letters * .3) return { lang: 'ja', conf: true };
+  let best = '', bc = 0;
+  for (const [l] of SCRIPTS) if (l !== 'ja' && counts[l] > bc) { bc = counts[l]; best = l; }
+  if (bc > letters * .3) return { lang: best, conf: true };
+  // Latin script: common words plus telltale letters
+  const lower = text.toLowerCase();
+  const words = lower.match(/[\p{L}']+/gu) || [];
+  const sc = {}; for (const k in STOP) sc[k] = 0;
+  for (const w of words) for (const k in STOP) if (STOP[k].has(w)) sc[k] += 1;
+  const bump = (k, re, w) => { const n = (lower.match(re) || []).length; if (n) sc[k] += Math.min(4, n) * w; };
+  bump('de', /[äöüß]/g, 1.2); bump('de', /\b\w+(ung|keit|lich|schaft)\b/g, .8); bump('de', /sch/g, .3);
+  bump('es', /[ñ¿¡]/g, 2); bump('es', /ción\b/g, 1.5);
+  bump('pt', /[ãõ]/g, 2); bump('pt', /ção\b|ções\b/g, 2);
+  bump('fr', /[èêëàùûœ]/g, .9); bump('fr', /\b(l'|d'|qu'|n'|j')/g, 1.2); bump('fr', /eau\b|aux\b/g, .5);
+  bump('tr', /[ışğ]/g, 2);
+  bump('pl', /[łśźżęą]/g, 1.5);
+  bump('sv', /[åäö]/g, .6);
+  bump('nl', /ij|\boe|aa|uu/g, .3);
+  bump('id', /\b(me|mem|men|meng|ber|di|ter|per|ke)\w{3,}|\w{3,}(nya|kan|lah|kah)\b/g, .45);
+  bump('en', /\b\w+(ing|tion|ly)\b|\bth/g, .35);
+  const ranked = Object.entries(sc).sort((a, b) => b[1] - a[1]);
+  const [l1, s1] = ranked[0], s2 = ranked[1][1];
+  if (s1 < 1) return { lang: '', conf: false };
+  const conf = words.length >= 3 && s1 >= 2 && s1 >= s2 * 1.5 + .5;
+  return { lang: l1 === 'ms' ? 'id' : l1, conf };
+}
+// The book's main language: the language most of its sentences are written in
+function bookLang(book) {
+  if (book._lang) return book._lang;
+  const tally = {}; let n = 0;
+  for (const b of book.blocks) {
+    if (b.t !== 'p') continue;
+    for (const sent of b.x.match(/[^.!?…。！？]+[.!?…。！？]*/g) || []) {
+      const d = detectLang(sent); if (d.conf) tally[d.lang] = (tally[d.lang] || 0) + sent.length;
+    }
+    if (++n > 80) break;
+  }
+  const top = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
+  return (book._lang = top ? top[0] : 'id');
+}
+// Splits a page into spoken segments: sentences, and quoted or colon-separated parts in another language
+function segmentsIn(box, defLang) {
+  const auto = S.autoLang !== false;
+  const out = [];
+  for (const el of box.children) {
+    if (el.classList.contains('sep')) continue;
+    const tn = el.firstChild; if (!tn || tn.nodeType !== 3) continue;
+    const txt = tn.data, re = /[^.!?…。！？]+[.!?…。！？]+["”’)\]」』]*|[^.!?…。！？]+$/g; let m;
+    const segs = [];
+    while ((m = re.exec(txt))) {
+      const sStart = m.index, sent = m[0];
+      if (!/[\p{L}\p{N}]/u.test(sent)) continue;
+      // split at quotes, colons and semicolons so a quotation can have its own language
+      const parts = []; const pre = /[^“”"«»„:;]+[“”"«»„:;]*/g; let q;
+      while ((q = pre.exec(sent))) {
+        if (!/[\p{L}\p{N}]/u.test(q[0])) continue;
+        const d = auto && q[0].trim().split(/\s+/).length >= 3 ? detectLang(q[0]) : { lang: '', conf: false };
+        parts.push({ a: sStart + q.index, b: sStart + q.index + q[0].length, text: q[0], lang: d.conf ? d.lang : '', conf: d.conf });
+      }
+      // parts too short to judge: decide them together, else use the book's language
+      const rest = parts.filter(x => !x.conf);
+      let restLang = defLang, restConf = false;
+      if (auto && rest.length) {
+        const d = detectLang(rest.length === parts.length ? sent : rest.map(x => x.text).join(' '));
+        if (d.conf) { restLang = d.lang; restConf = true; }
+      }
+      for (const x of rest) { x.lang = restLang; x.conf = restConf; }
+      for (const x of parts) {
+        const prev = segs[segs.length - 1];
+        if (prev && prev.lang === x.lang) { prev.b = x.b; prev.conf = prev.conf || x.conf; }
+        else segs.push({ a: x.a, b: x.b, lang: x.lang, conf: x.conf });
+      }
+    }
+    for (const sg of segs) {
+      const raw = txt.slice(sg.a, sg.b), lead = raw.length - raw.trimStart().length, body = raw.trim();
+      if (!body) continue;
+      const r = document.createRange(); r.setStart(tn, sg.a + lead); r.setEnd(tn, sg.a + lead + body.length);
+      out.push({ text: body, range: r, lang: sg.lang, conf: sg.conf || sg.lang === defLang, el, h: el.tagName === 'H2' });
+    }
+  }
+  return out;
+}
+const voiceCache = {};
+function deviceVoiceFor(lang) {
+  if (!ttsOK || !lang) return null;
+  if (voiceCache[lang] !== undefined && voiceCache[lang] !== null) return voiceCache[lang];
+  const vs = speechSynthesis.getVoices(); const pre = lang.toLowerCase();
+  const pool = vs.filter(v => v.lang.toLowerCase().replace('_', '-').startsWith(pre));
+  const pref = LTAG[lang] ? pool.filter(v => v.lang.replace('_', '-').toLowerCase() === LTAG[lang].toLowerCase()) : [];
+  const pick = list => list.find(v => /google|natural|premium|enhanced/i.test(v.name)) || list[0];
+  const v = pick(pref) || pick(pool) || null;
+  if (vs.length) voiceCache[lang] = v;
+  return v;
+}
+if (ttsOK) try { speechSynthesis.addEventListener('voiceschanged', () => { for (const k in voiceCache) delete voiceCache[k]; }); } catch (e) {}
+const missingVoiceWarned = new Set();
+
 /* ---------- Languages, translation (Claude) and AI voice ---------- */
 const LANGS = [['asli', 'Bahasa asli', ''], ['id', 'Indonesia', 'ID'], ['en', 'Inggris', 'EN'], ['ar', 'Arab', 'AR'], ['zh', 'Mandarin', 'ZH'], ['ja', 'Jepang', 'JA'], ['ko', 'Korea', 'KO'], ['es', 'Spanyol', 'ES'], ['fr', 'Prancis', 'FR'], ['de', 'Jerman', 'DE'], ['nl', 'Belanda', 'NL'], ['pt', 'Portugis', 'PT'], ['ru', 'Rusia', 'RU'], ['hi', 'Hindi', 'HI'], ['tr', 'Turki', 'TR'], ['ms', 'Melayu', 'MS']];
 const LANG_EN = { id: 'Indonesian', en: 'English', ar: 'Arabic', zh: 'Simplified Chinese (Mandarin)', ja: 'Japanese', ko: 'Korean', es: 'Spanish', fr: 'French', de: 'German', nl: 'Dutch', pt: 'Portuguese', ru: 'Russian', hi: 'Hindi', tr: 'Turkish', ms: 'Malay' };
@@ -1255,7 +1378,9 @@ cap('tts').then(t => {
   t.onLine(({ id }) => {
     const i = id ? parseInt(id.slice(1), 10) : -1; const ln = Narr.lines && Narr.lines[i];
     if (!ln) return;
-    if (ln.el) { const r = document.createRange(); r.selectNodeContents(ln.el); setHL(r); }
+    if (ln.range) setHL(ln.range);
+    else if (ln.el) { const r = document.createRange(); r.selectNodeContents(ln.el); setHL(r); }
+    if (ln.lang) $('#nowtxt').textContent = 'Membacakan · ' + (LNAME[ln.lang] || ln.lang);
     markCap(ln.cap);
   });
 });
@@ -1283,6 +1408,7 @@ async function narrate(ctx, box, done) {
   const aligned = !tr || tr.length === els.length;
   $('#nowtxt').textContent = lang ? 'Membacakan dalam bahasa ' + langLabel(lang) : 'Membacakan halaman';
   if (Narr.blocked) { narrEnd(tok); toast('Suara AI dimatikan untuk aplikasi ini. Nyalakan lagi lewat menu Izin artifact.'); return; }
+  if (!lang) { $('#nowtxt').textContent = 'Membacakan halaman'; return narrateOriginal(tok, ctx, box, done); }
   if (Narr.t) {
     const lines = []; Narr.lines = [];
     texts.forEach((t, i) => chunk(t, 1900).forEach(part => { Narr.lines.push({ el: aligned ? els[i] : null, cap: i }); lines.push({ text: part, id: 'l' + (Narr.lines.length - 1) }); }));
@@ -1305,6 +1431,65 @@ async function narrate(ctx, box, done) {
     return;
   }
   deviceSpeak(tok, box, lang, texts, aligned && tr ? els : null, done);
+}
+
+function narrateOriginal(tok, ctx, box, done) {
+  const segs = segmentsIn(box, bookLang(ctx.book));
+  if (!segs.length) { narrEnd(tok); done(); return; }
+  if (Narr.blocked) { narrEnd(tok); toast('Suara AI dimatikan untuk aplikasi ini. Nyalakan lagi lewat menu Izin artifact.'); return; }
+  if (Narr.t) {
+    const lines = []; Narr.lines = [];
+    for (const sg of segs) for (const part of chunk(sg.text, 1900)) {
+      Narr.lines.push({ range: sg.range, lang: sg.lang, cap: -1 });
+      const line = { text: part, id: 'l' + (Narr.lines.length - 1) };
+      if (sg.conf && sg.lang) line.language = sg.lang; // unsure parts are left for the voice to guess
+      lines.push(line);
+    }
+    Narr.claude = true;
+    Narr.t.speak(lines.slice(0, 100), { voice: S.voice, rate: Math.min(1.5, Math.max(.7, S.rate)) }).then(() => { if (narrEnd(tok)) done(); }).catch(e => {
+      if (tok !== Narr.token) return;
+      const code = e && e.code;
+      if (code === 'stopped' || code === 'busy') { narrEnd(tok); return; }
+      if (code === 'not_granted') { Narr.blocked = true; narrEnd(tok); toast('Suara AI dimatikan untuk aplikasi ini. Nyalakan lagi lewat menu Izin artifact.'); return; }
+      if (code === 'no_gesture') { narrEnd(tok); toast('Ketuk halaman sekali, lalu tekan tombol Suara untuk mulai mendengarkan.'); return; }
+      if (code === 'rate_limited') { narrEnd(tok); toast('Batas suara AI tercapai untuk sementara. Coba lagi nanti.'); return; }
+      if (code === 'unavailable') Narr.t = null;
+      Narr.claude = false;
+      deviceSegments(tok, segs, done);
+    });
+    return;
+  }
+  deviceSegments(tok, segs, done);
+}
+function deviceSegments(tok, segs, done) {
+  if (!ttsOK) { narrEnd(tok); done(); return; }
+  let i = 0;
+  const next = () => {
+    if (tok !== Narr.token) return;
+    if (i >= segs.length) { if (narrEnd(tok)) done(); return; }
+    const sg = segs[i++]; setHL(sg.range);
+    const v = deviceVoiceFor(sg.lang);
+    if (!v && sg.lang && speechSynthesis.getVoices().length && !missingVoiceWarned.has(sg.lang)) {
+      missingVoiceWarned.add(sg.lang);
+      toast('Suara bahasa ' + (LNAME[sg.lang] || sg.lang) + ' belum terpasang di perangkat. Pasang lewat pengaturan Text-to-speech agar pengucapannya tepat.');
+    }
+    $('#nowtxt').textContent = 'Membacakan · ' + (LNAME[sg.lang] || 'halaman');
+    const parts = chunk(sg.text, 600); let j = 0;
+    const speakPart = () => {
+      if (tok !== Narr.token) return;
+      if (j >= parts.length) { setTimeout(next, sg.h ? 350 : 60); return; }
+      const text = parts[j++];
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = v ? v.lang : (LTAG[sg.lang] || sg.lang || 'id-ID'); if (v) u.voice = v; u.rate = S.rate;
+      let fin0 = false;
+      const fin = () => { if (fin0) return; fin0 = true; clearTimeout(guard); speakPart(); };
+      const guard = setTimeout(fin, (text.length * 95) / S.rate + 5000);
+      u.onend = fin; u.onerror = ev => { speechErr(ev); fin(); };
+      try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) { fin(); }
+    };
+    speakPart();
+  };
+  setTimeout(next, 150);
 }
 
 let devLangWarned = '';
@@ -1586,6 +1771,8 @@ function openSettings() {
     <div class="group"><h4>Suara</h4>
       <label class="sw">Suara aktif<input type="checkbox" id="sSnd" ${Snd.on ? 'checked' : ''}></label>
       <label class="sw">Bacakan halaman (narasi)<input type="checkbox" id="sNarr" ${S.narr ? 'checked' : ''}></label>
+      <label class="sw">Ikuti bahasa teks otomatis<input type="checkbox" id="sAutoLang" ${S.autoLang !== false ? 'checked' : ''}></label>
+      <p class="note">Bagian berbahasa Inggris dibaca dengan suara Inggris, bagian Jerman dengan suara Jerman, dan seterusnya, termasuk kutipan di tengah kalimat.</p>
       <div class="bact"><button class="btn small" id="sTest">Tes suara</button><button class="btn ghost small" data-act="lang">Bahasa baca: ${esc(langLabel(S.lang))}</button></div>
       <div class="note" id="sTestOut" hidden style="display:grid;gap:6px;margin:0"></div>
       <label class="lbl" for="sRate">Kecepatan narasi</label>
@@ -1618,6 +1805,7 @@ function openSettings() {
     rng('#sGoal', 'goal', '#oGoal', v => v + ' mnt');
     m.querySelector('#sSnd').addEventListener('change', e => { Snd.on = e.target.checked; if (Snd.on) { audioCtx(); startMusic(); } else stopMusic(); });
     m.querySelector('#sNarr').addEventListener('change', e => { S.narr = e.target.checked; saveSettings(); });
+    m.querySelector('#sAutoLang').addEventListener('change', e => { S.autoLang = e.target.checked; saveSettings(); });
     m.querySelector('#sFlip').addEventListener('change', e => { S.flip = e.target.checked; saveSettings(); });
     m.querySelector('#sTest').addEventListener('click', () => testVoice(m.querySelector('#sTestOut')));
     m.querySelector('#sAuto').addEventListener('change', e => { Auto.on = e.target.checked; });
