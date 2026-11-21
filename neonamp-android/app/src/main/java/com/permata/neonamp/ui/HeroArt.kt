@@ -140,25 +140,35 @@ fun DrawScope.drawEmblem(hero: Hero, pal: Palette, pulse: Float = 1f) {
             drawPath(shield, pal.tertiary, style = Stroke(3f * u))
         }
         Hero.BAT -> {
-            // Bulan kuning dengan siluet kelelawar terbang
-            drawCircle(pal.primary.copy(alpha = 0.18f * pulse), 49f * u, c)
-            drawCircle(pal.primary, 42f * u, c)
-            drawPath(batPath(u, 50f, 52f, 80f), Color(0xFF07070A))
+            // Langit malam: bulan purnama di pojok, kelelawar terbang melintas
+            drawCircle(Color(0xFF0B0B12), 48f * u, c)
+            val moonC = p(u, 62f, 38f)
+            drawCircle(pal.primary.copy(alpha = 0.16f * pulse), 36f * u, moonC)
+            drawCircle(
+                Brush.radialGradient(listOf(pal.tertiary, pal.primary), moonC, 28f * u), 28f * u, moonC,
+            )
+            drawCircle(Color.Black.copy(alpha = 0.10f), 5f * u, p(u, 54f, 30f))
+            drawCircle(Color.Black.copy(alpha = 0.08f), 3.5f * u, p(u, 70f, 46f))
+            drawCircle(Color.Black.copy(alpha = 0.08f), 2.5f * u, p(u, 66f, 26f))
+            rotate(-10f, p(u, 58f, 42f)) { drawPath(batPath(u, 58f, 42f, 50f), Color(0xFF050507)) }
+            rotate(12f, p(u, 74f, 57f)) { drawPath(batPath(u, 74f, 57f, 15f), Color(0xFF050507)) }
+            drawCircle(pal.line, 48f * u, c, style = Stroke(2f * u))
         }
         Hero.STEEL -> {
-            // Lambang wajik merah-kuning dengan petir
-            val diamond = Path().apply {
-                moveTo(22f * u, 14f * u); lineTo(78f * u, 14f * u); lineTo(94f * u, 32f * u)
-                lineTo(50f * u, 92f * u); lineTo(6f * u, 32f * u); close()
+            // Lencana bulat biru bercincin merah dengan petir kuning dan garis kecepatan
+            drawCircle(pal.secondary, 48f * u, c)
+            drawCircle(Brush.radialGradient(listOf(pal.primary, Color(0xFF0A2A7A)), c, 42f * u), 42f * u, c)
+            for (i in 0 until 3) {
+                val y = (30f + i * 8f) * u
+                drawLine(Color.White.copy(alpha = 0.25f), Offset(14f * u, y + 18f * u), Offset(36f * u, y), 2f * u, StrokeCap.Round)
             }
-            drawPath(diamond, pal.tertiary)
-            drawPath(diamond, pal.secondary, style = Stroke(5f * u))
             val bolt = Path().apply {
-                moveTo(56f * u, 20f * u); lineTo(32f * u, 52f * u); lineTo(48f * u, 52f * u)
-                lineTo(40f * u, 82f * u); lineTo(70f * u, 42f * u); lineTo(53f * u, 42f * u); lineTo(62f * u, 20f * u); close()
+                moveTo(58f * u, 14f * u); lineTo(34f * u, 54f * u); lineTo(50f * u, 54f * u)
+                lineTo(42f * u, 88f * u); lineTo(72f * u, 42f * u); lineTo(55f * u, 42f * u); lineTo(64f * u, 14f * u); close()
             }
-            drawPath(bolt, pal.secondary)
-            drawPath(bolt, Color.White.copy(alpha = 0.35f * pulse), style = Stroke(1.5f * u))
+            drawPath(bolt, pal.tertiary)
+            drawPath(bolt, pal.secondary, style = Stroke(2f * u))
+            drawPath(bolt, Color.White.copy(alpha = 0.4f * pulse), style = Stroke(1f * u))
         }
     }
 }
