@@ -242,6 +242,25 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 ::highlight(narasi) { background-color: rgba(64, 170, 140, .3); }
 @media (max-height: 700px) { .rail { gap: 7px; bottom: 12px; } .ract .ic { width: 38px; height: 38px; } .ract { font-size: 10px; } }
 
+/* Translation caption (like video subtitles) */
+.caption { position: absolute; left: max(12px, calc((100% - 40rem) / 2 + 12px)); right: max(62px, calc((100% - 40rem) / 2 + 12px)); bottom: 44px; z-index: 5; background: var(--chrome); color: var(--chrome-fg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px -14px rgba(0,0,0,.45); display: grid; overflow: hidden; }
+.caphead { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 12px; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); }
+.capl { background: var(--accent); color: var(--accent-fg); border-radius: 5px; padding: 2px 6px; font-size: 10.5px; letter-spacing: .06em; }
+.caphead span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caphead button { font-size: 12px; font-weight: 600; color: var(--chrome-fg); padding: 4px 8px; border-radius: 6px; }
+.capbody { max-height: min(32vh, 15rem); overflow-y: auto; padding: 10px 12px 12px; display: grid; gap: 8px; font: 400 15px/1.55 var(--f-read); overscroll-behavior: contain; }
+.capbody p { margin: 0; border-radius: 4px; transition: background .2s; }
+.capbody p.cur { background: rgba(64, 170, 140, .22); }
+.capbody .wait { color: var(--muted); font-family: var(--f-ui); font-size: 13px; }
+.caption.min .capbody { display: none; }
+.nowplay button { font-size: 11.5px; font-weight: 700; color: var(--chrome-fg); border-left: 1px solid var(--line); padding-left: 8px; margin-left: 2px; }
+.langs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.langs button { padding: 10px 8px; border-radius: 10px; border: 1px solid var(--line); font-size: 13.5px; text-align: left; display: flex; justify-content: space-between; gap: 6px; }
+.langs button small { color: var(--muted); font-size: 11px; letter-spacing: .05em; }
+.langs button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
+.ract .code { font: 700 12.5px/1 var(--f-ui); letter-spacing: .04em; }
+@media (max-height: 760px) { .rail { gap: 6px; bottom: 10px; } .ract .ic { width: 37px; height: 37px; } .ract { font-size: 9.5px; } }
+
 /* Settings groups + toggles */
 .group { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
 .group h4 { margin: 0; font: 700 15px/1.2 var(--f-ui); }
@@ -294,7 +313,8 @@ main { flex: 1; min-height: 0; position: relative; overflow: hidden; }
     <section class="panel" id="simpan" hidden></section>
     <div class="rail" id="rail"></div>
     <div class="autobar" id="autobar" hidden><i></i></div>
-    <div class="nowplay" id="nowplay" hidden><span class="eq"><i></i><i></i><i></i></span><span id="nowtxt">Membacakan halaman</span></div>
+    <div class="nowplay" id="nowplay" hidden><span class="eq"><i></i><i></i><i></i></span><span id="nowtxt">Membacakan halaman</span><button id="nowstop">Berhenti</button></div>
+    <div class="caption" id="caption" hidden><div class="caphead"><span class="capl" id="capLang">EN</span><span id="capTitle">Terjemahan</span><button id="capToggle" aria-expanded="true">Ciutkan</button></div><div class="capbody" id="capBody"></div></div>
     <div class="hint" id="hint" hidden>Geser ke atas untuk halaman berikutnya</div>
     <div class="busy" id="busy" hidden><div class="busy-card"><div class="spin"></div><span id="busyMsg">Menyusun halaman…</span></div></div>
   </main>
@@ -323,6 +343,7 @@ const IC = {
   sndOff: '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13"/></svg>',
+  globe: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3.5 12h17M12 3c2.5 2.6 3.6 5.6 3.6 9s-1.1 6.4-3.6 9c-2.5-2.6-3.6-5.6-3.6-9S9.5 5.6 12 3z"/></svg>',
   up: '<svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 15v5h16v-5"/></svg>',
 };
 
@@ -635,7 +656,7 @@ async function parseDocx(buf) {
 }
 
 /* ---------- State ---------- */
-const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false, narr: true, rate: 1, music: 'piano', vol: 0.5, flip: true, wpm: 200, goal: 15 }, store('lg-settings', {}));
+const S = Object.assign({ fs: matchMedia('(max-width: 600px)').matches ? 18 : 19, lh: 1.62, paper: 'auto', font: 'serif', current: null, hinted: false, narr: true, rate: 1, music: 'piano', vol: 0.5, flip: true, wpm: 200, goal: 15, lang: 'asli', cap: true, voice: 'buttery' }, store('lg-settings', {}));
 const P = store('lg-progress', {}); // bookId -> { b, w, marks: [[b,w]], t }
 let books = [];
 let quotes = [];
@@ -950,6 +971,7 @@ function renderRail() {
   }
   h += `<button class="ract snd ${Snd.on ? 'on' : ''}" data-act="sound" aria-pressed="${Snd.on}"><span class="ic">${Snd.on ? IC.sndOn : IC.sndOff}</span>${Snd.on ? 'Suara' : 'Senyap'}</button>`;
   h += `<button class="ract ${Auto.on ? 'play' : ''}" data-act="auto" aria-pressed="${Auto.on}"><span class="ic">${Auto.on ? IC.pause : IC.play}</span>${Auto.on ? 'Jeda' : 'Otomatis'}</button>`;
+  h += `<button class="ract" data-act="lang" aria-label="Bahasa: ${esc(langLabel(S.lang))}"><span class="ic">${S.lang === 'asli' ? IC.globe : '<span class="code">' + langCode(S.lang) + '</span>'}</span>Bahasa</button>`;
   h += `<button class="ract" data-act="copy"><span class="ic">${IC.copy}</span>Salin</button>`;
   rail.innerHTML = h;
 }
@@ -1069,25 +1091,182 @@ function sentencesIn(box) {
   }
   return out;
 }
-function narrStop() {
-  Narr.token++; Narr.speaking = false; clearHL(); $('#nowplay').hidden = true;
-  if (ttsOK) try { speechSynthesis.cancel(); } catch (e) {}
+/* ---------- Languages, translation (Claude) and AI voice ---------- */
+const LANGS = [['asli', 'Bahasa asli', ''], ['id', 'Indonesia', 'ID'], ['en', 'Inggris', 'EN'], ['ar', 'Arab', 'AR'], ['zh', 'Mandarin', 'ZH'], ['ja', 'Jepang', 'JA'], ['ko', 'Korea', 'KO'], ['es', 'Spanyol', 'ES'], ['fr', 'Prancis', 'FR'], ['de', 'Jerman', 'DE'], ['nl', 'Belanda', 'NL'], ['pt', 'Portugis', 'PT'], ['ru', 'Rusia', 'RU'], ['hi', 'Hindi', 'HI'], ['tr', 'Turki', 'TR'], ['ms', 'Melayu', 'MS']];
+const LANG_EN = { id: 'Indonesian', en: 'English', ar: 'Arabic', zh: 'Simplified Chinese (Mandarin)', ja: 'Japanese', ko: 'Korean', es: 'Spanish', fr: 'French', de: 'German', nl: 'Dutch', pt: 'Portuguese', ru: 'Russian', hi: 'Hindi', tr: 'Turkish', ms: 'Malay' };
+const VOICES = [['buttery', 'Lembut'], ['airy', 'Ringan'], ['glassy', 'Jernih'], ['rounded', 'Hangat']];
+const langLabel = c => (LANGS.find(l => l[0] === c) || LANGS[0])[1];
+const langCode = c => (LANGS.find(l => l[0] === c) || LANGS[0])[2];
+const capP = {};
+function cap(n) {
+  if (!capP[n]) capP[n] = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve().then(() => window.claude.use(n)).catch(() => null) : Promise.resolve(null);
+  return capP[n];
 }
-function narrPage(box, onDone) {
-  narrStop();
-  const tok = Narr.token, list = sentencesIn(box);
-  if (!list.length) { onDone && onDone(); return; }
+const TR = store('lg-tr', {});
+const Tr = { off: false, warned: false, pending: {} };
+function trKey(texts, lang) { const str = lang + '\u0001' + texts.join('\u0002'); let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return lang + ':' + (h >>> 0).toString(36) + ':' + str.length; }
+function saveTR() { const ks = Object.keys(TR); if (ks.length > 300) ks.slice(0, ks.length - 300).forEach(k => delete TR[k]); save('lg-tr', TR); }
+function trWarn(msg) { if (!Tr.warned) { Tr.warned = true; toast(msg); } }
+async function translate(texts, lang) {
+  if (!texts.length || !LANG_EN[lang]) return null;
+  const key = trKey(texts, lang);
+  if (TR[key]) return TR[key];
+  if (Tr.off) return null;
+  if (Tr.pending[key]) return Tr.pending[key];
+  return (Tr.pending[key] = (async () => {
+    const sample = await cap('sample');
+    if (!sample) { Tr.off = true; trWarn('Terjemahan hanya tersedia saat aplikasi dibuka di Claude. Ditampilkan bahasa asli.'); return null; }
+    try {
+      const prompt = `Translate each paragraph of this book page into ${LANG_EN[lang]}. A paragraph may start or end mid-sentence because of a page break: translate that fragment as it is, without completing it. Keep the meaning and use a natural style that sounds good read aloud. No notes or explanations.\nReply with only JSON shaped like {"t": ["first paragraph", "second paragraph"]}, with exactly ${texts.length} strings in the same order.\n\nParagraphs as JSON:\n${JSON.stringify(texts)}`;
+      const r = await sample.json(prompt, { modelTier: 'quick' });
+      let out = r && Array.isArray(r.t) ? r.t.map(x => String(x)) : null;
+      if (!out || !out.length) { trWarn('Terjemahan halaman ini gagal. Ditampilkan bahasa asli.'); return null; }
+      if (out.length !== texts.length) out = [out.join(' ')];
+      TR[key] = out; saveTR(); return out;
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'cancelled') return null;
+      if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code)) { Tr.off = true; Tr.warned = false; trWarn('Izin menerjemahkan belum diberikan untuk aplikasi ini. Ditampilkan bahasa asli.'); }
+      else if (code === 'rate_limited') { Tr.off = true; Tr.warned = false; trWarn('Batas terjemahan tercapai untuk sementara. Pilih bahasa lagi nanti untuk melanjutkan.'); }
+      else trWarn('Terjemahan halaman ini gagal. Ditampilkan bahasa asli.');
+      return null;
+    } finally { delete Tr.pending[key]; }
+  })());
+}
+function piecesTexts(book, pieces) { return pieces.map(pc => { const b = book.blocks[pc.i]; return b.t === 's' ? '' : renderPiece(b, pc).textContent; }).filter(t => t.trim()); }
+function nextPageTexts() {
+  if (view === 'read' && R.book && R.idx + 1 < R.pages.length) return piecesTexts(R.book, R.pages[R.idx + 1]);
+  const it = view === 'feed' && F.items[F.idx + 1];
+  if (it && it.pieces) return piecesTexts(bookById(it.bookId), it.pieces);
+  return null;
+}
+
+/* Caption: shows the page in the chosen language */
+const Cap = { min: false, pageId: '' };
+function markCap(i) {
+  const body = $('#capBody'); [...body.children].forEach((p, k) => p.classList.toggle('cur', k === i));
+  const cur = body.children[i]; if (cur && !Cap.min) { const top = cur.offsetTop - body.offsetTop - 8; body.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' }); }
+}
+async function showCaption(ctx, id) {
+  const el = $('#caption');
+  if (!ctx || S.lang === 'asli' || !S.cap || (view !== 'read' && view !== 'feed')) { el.hidden = true; return; }
+  const texts = piecesTexts(ctx.book, ctx.pieces); if (!texts.length) { el.hidden = true; return; }
+  Cap.pageId = id;
+  const body = $('#capBody');
+  $('#capLang').textContent = langCode(S.lang); $('#capTitle').textContent = 'Terjemahan ' + langLabel(S.lang);
+  body.lang = S.lang; body.dir = S.lang === 'ar' ? 'rtl' : 'ltr';
+  el.hidden = false; el.classList.toggle('min', Cap.min); $('#capToggle').textContent = Cap.min ? 'Buka' : 'Ciutkan';
+  if (!TR[trKey(texts, S.lang)]) body.innerHTML = '<p class="wait">Menerjemahkan ke ' + esc(langLabel(S.lang)) + '…</p>';
+  const tr = await translate(texts, S.lang);
+  if (Cap.pageId !== id) return;
+  if (!tr) { el.hidden = true; return; }
+  body.innerHTML = tr.map(t => '<p>' + esc(t) + '</p>').join('');
+  body.scrollTop = 0;
+  const nx = nextPageTexts(); if (nx && nx.length) translate(nx, S.lang); // prefetch the next page
+}
+$('#capToggle').addEventListener('click', () => { Cap.min = !Cap.min; $('#caption').classList.toggle('min', Cap.min); $('#capToggle').textContent = Cap.min ? 'Buka' : 'Ciutkan'; $('#capToggle').setAttribute('aria-expanded', !Cap.min); });
+
+/* Narration: Claude voice when the viewer has it, else the device's voice */
+Narr.t = null; Narr.blocked = false; Narr.lines = null; Narr.claude = false;
+cap('tts').then(t => {
+  if (!t) return;
+  Narr.t = t;
+  try { t.setRate && t.setRate(Math.min(1.5, Math.max(.7, S.rate))).catch(() => {}); } catch (e) {}
+  t.onState(({ state, reason }) => {
+    if (state !== 'idle') { $('#nowplay').hidden = false; return; }
+    if (reason === 'viewer_stopped' && Snd.on) setSound(false);
+    if (reason === 'not_granted') { Narr.blocked = true; }
+    if (reason === 'unavailable') { Narr.t = null; }
+  });
+  t.onLine(({ id }) => {
+    const i = id ? parseInt(id.slice(1), 10) : -1; const ln = Narr.lines && Narr.lines[i];
+    if (!ln) return;
+    if (ln.el) { const r = document.createRange(); r.selectNodeContents(ln.el); setHL(r); }
+    markCap(ln.cap);
+  });
+});
+function narrStop(keepClaude) {
+  Narr.token++; Narr.speaking = false; Narr.lines = null; clearHL(); markCap(-1); $('#nowplay').hidden = true;
+  if (ttsOK) try { speechSynthesis.cancel(); } catch (e) {}
+  if (Narr.claude && Narr.t && !keepClaude) { Narr.claude = false; Narr.t.stop().catch(() => {}); }
+}
+function narrEnd(tok) { if (tok !== Narr.token) return false; Narr.speaking = false; Narr.claude = false; clearHL(); markCap(-1); $('#nowplay').hidden = true; return true; }
+$('#nowstop').addEventListener('click', () => { narrStop(); clearTimeout(Auto.t); bar(0); });
+function chunk(t, n) { const out = []; while (t.length > n) { let k = t.lastIndexOf(' ', n); if (k < n * .5) k = n; out.push(t.slice(0, k)); t = t.slice(k).trim(); } if (t) out.push(t); return out; }
+
+async function narrate(ctx, box, done) {
+  const tok = Narr.token;
+  const els = [...box.children].filter(e => !e.classList.contains('sep') && e.textContent.trim());
+  if (!els.length) { done(); return; }
+  let texts = els.map(e => e.textContent), lang = '', tr = null;
   Narr.speaking = true; $('#nowplay').hidden = false;
+  if (S.lang !== 'asli') {
+    $('#nowtxt').textContent = 'Menerjemahkan ke ' + langLabel(S.lang) + '…';
+    tr = await translate(texts, S.lang);
+    if (tok !== Narr.token) return;
+    if (tr) { texts = tr; lang = S.lang; }
+  }
+  const aligned = !tr || tr.length === els.length;
+  $('#nowtxt').textContent = lang ? 'Membacakan dalam bahasa ' + langLabel(lang) : 'Membacakan halaman';
+  if (Narr.blocked) { narrEnd(tok); toast('Suara AI dimatikan untuk aplikasi ini. Nyalakan lagi lewat menu Izin artifact.'); return; }
+  if (Narr.t) {
+    const lines = []; Narr.lines = [];
+    texts.forEach((t, i) => chunk(t, 1900).forEach(part => { Narr.lines.push({ el: aligned ? els[i] : null, cap: i }); lines.push({ text: part, id: 'l' + (Narr.lines.length - 1) }); }));
+    Narr.claude = true;
+    try {
+      await Narr.t.speak(lines.slice(0, 100), Object.assign({ voice: S.voice, rate: Math.min(1.5, Math.max(.7, S.rate)) }, lang ? { language: lang } : {}));
+      if (narrEnd(tok)) done();
+    } catch (e) {
+      if (tok !== Narr.token) return;
+      const code = e && e.code;
+      if (code === 'stopped') { narrEnd(tok); return; }
+      if (code === 'not_granted') { Narr.blocked = true; narrEnd(tok); toast('Suara AI dimatikan untuk aplikasi ini. Nyalakan lagi lewat menu Izin artifact.'); return; }
+      if (code === 'no_gesture') { narrEnd(tok); toast('Ketuk halaman sekali, lalu tekan tombol Suara untuk mulai mendengarkan.'); return; }
+      if (code === 'rate_limited') { narrEnd(tok); toast('Batas suara AI tercapai untuk sementara. Coba lagi nanti.'); return; }
+      if (code === 'busy') { narrEnd(tok); return; }
+      if (code === 'unavailable') Narr.t = null;
+      Narr.claude = false;
+      deviceSpeak(tok, box, lang, texts, aligned ? els : null, done);
+    }
+    return;
+  }
+  deviceSpeak(tok, box, lang, texts, aligned && tr ? els : null, done);
+}
+
+let devLangWarned = '';
+function deviceSpeak(tok, box, lang, texts, els, done) {
+  if (!ttsOK) { narrEnd(tok); done(); return; }
+  if (!lang) return deviceOriginal(tok, box, done);
+  const vs = speechSynthesis.getVoices();
+  const voice = vs.find(v => v.lang.toLowerCase().startsWith(lang) && /google|natural|premium/i.test(v.name)) || vs.find(v => v.lang.toLowerCase().startsWith(lang));
+  if (!voice && devLangWarned !== lang) { devLangWarned = lang; toast('Perangkat ini tidak punya suara bahasa ' + langLabel(lang) + '. Pengucapan bisa kurang tepat.'); }
+  let i = 0;
+  const next = () => {
+    if (tok !== Narr.token) return;
+    if (i >= texts.length) { if (narrEnd(tok)) done(); return; }
+    const k = i++; markCap(k);
+    if (els && els[k]) { const r = document.createRange(); r.selectNodeContents(els[k]); setHL(r); }
+    const u = new SpeechSynthesisUtterance(texts[k]); u.lang = voice ? voice.lang : lang; if (voice) u.voice = voice; u.rate = S.rate;
+    let fin0 = false; const fin = () => { if (fin0) return; fin0 = true; clearTimeout(g); setTimeout(next, 120); };
+    const g = setTimeout(fin, texts[k].length * 110 / S.rate + 6000);
+    u.onend = fin; u.onerror = fin;
+    try { speechSynthesis.speak(u); } catch (e) { fin(); }
+  };
+  setTimeout(next, 150);
+}
+function deviceOriginal(tok, box, done) {
+  const list = sentencesIn(box);
+  if (!list.length) { narrEnd(tok); done(); return; }
   $('#nowtxt').textContent = Narr.voice ? 'Membacakan halaman' : 'Membacakan halaman (suara bawaan perangkat)';
   let i = 0;
   const next = () => {
     if (tok !== Narr.token) return;
-    if (i >= list.length) { Narr.speaking = false; clearHL(); $('#nowplay').hidden = true; onDone && onDone(); return; }
+    if (i >= list.length) { if (narrEnd(tok)) done(); return; }
     const s = list[i++]; setHL(s.range);
     const u = new SpeechSynthesisUtterance(s.text);
     u.lang = Narr.voice ? Narr.voice.lang : 'id-ID'; if (Narr.voice) u.voice = Narr.voice; u.rate = S.rate;
-    let done = false;
-    const fin = () => { if (done) return; done = true; clearTimeout(guard); setTimeout(next, s.h ? 350 : 60); };
+    let fin0 = false;
+    const fin = () => { if (fin0) return; fin0 = true; clearTimeout(guard); setTimeout(next, s.h ? 350 : 60); };
     const guard = setTimeout(fin, (s.text.length * 95) / S.rate + 5000);
     u.onend = fin; u.onerror = fin;
     try { speechSynthesis.speak(u); } catch (e) { fin(); }
@@ -1122,31 +1301,33 @@ function setAuto(on) {
 // Called whenever a new page comes to rest (manual swipe, auto turn, or view switch)
 let lastPage = '';
 function pageStart(force) {
+  if ($('#modal')) return;
   const ctx = currentCtx();
   const id = ctx ? view + ':' + ctx.book.id + ':' + ctx.start.b + ':' + ctx.start.w : '';
   if (!force && id === lastPage) return;
   const turned = lastPage && id !== lastPage && !force;
   lastPage = id;
-  clearTimeout(Auto.t); narrStop(); bar(0);
+  const box = ctx && ctx.sec && ctx.sec.querySelector('.text');
+  const speak = !!(ctx && !document.hidden && Snd.on && S.narr && (ttsOK || Narr.t) && box);
+  clearTimeout(Auto.t); narrStop(speak); bar(0);
+  showCaption(document.hidden ? null : ctx, id);
   if (!ctx || document.hidden) return;
   if (turned) { playFlip(); countPage(); }
-  const box = ctx.sec && ctx.sec.querySelector('.text');
-  const speak = Snd.on && S.narr && ttsOK && box;
   if (speak) {
     if (Auto.on) bar(Math.max(4000, ctxText(ctx).length / (14 * S.rate) * 1000));
-    narrPage(box, () => { if (Auto.on) Auto.t = setTimeout(autoNext, 700); });
+    narrate(ctx, box, () => { if (Auto.on) Auto.t = setTimeout(autoNext, 700); });
   } else if (Auto.on) {
     const ms = Math.max(5000, pageWords(ctx) / S.wpm * 60000);
     bar(ms); Auto.t = setTimeout(autoNext, ms);
   }
 }
-function pauseAll() { clearTimeout(Auto.t); narrStop(); bar(0); lastPage = ''; }
+function pauseAll() { clearTimeout(Auto.t); narrStop(); bar(0); lastPage = ''; Cap.pageId = ''; $('#caption').hidden = true; }
 async function setSound(on) {
   Snd.on = on;
   if (on) {
     audioCtx();
-    if (S.narr && !ttsOK) toast('Perangkat ini tidak mendukung narasi suara. Musik dan efek tetap aktif.');
-    else if (S.narr && !Narr.voice && !pickVoice()) toast('Suara bahasa Indonesia tidak ditemukan, dipakai suara bawaan perangkat.');
+    if (S.narr && !ttsOK && !Narr.t) toast('Perangkat ini tidak mendukung narasi suara. Musik dan efek tetap aktif.');
+    else if (S.narr && !Narr.t && S.lang === 'asli' && !Narr.voice && !pickVoice()) toast('Suara bahasa Indonesia tidak ditemukan, dipakai suara bawaan perangkat.');
     else toast('Suara aktif');
     startMusic();
   } else { stopMusic(); toast('Suara dimatikan'); }
@@ -1283,7 +1464,7 @@ function openSettings() {
     <div class="group"><h4>Suara</h4>
       <label class="sw">Suara aktif<input type="checkbox" id="sSnd" ${Snd.on ? 'checked' : ''}></label>
       <label class="sw">Bacakan halaman (narasi)<input type="checkbox" id="sNarr" ${S.narr ? 'checked' : ''}></label>
-      ${ttsOK ? '' : '<p class="note">Peramban ini tidak mendukung narasi suara.</p>'}
+      <button class="btn ghost small" data-act="lang" style="justify-self:start">Bahasa baca: ${esc(langLabel(S.lang))}</button>
       <label class="lbl" for="sRate">Kecepatan narasi</label>
       <div class="range"><input type="range" id="sRate" min="0.7" max="1.6" step="0.1" value="${S.rate}"><output id="oRate">${(+S.rate).toFixed(1)}×</output></div>
       <div class="lbl">Musik latar</div>
@@ -1308,7 +1489,7 @@ function openSettings() {
     seg('#sPaper', 'paper'); seg('#sFont', 'font');
     m.querySelector('#sMusic').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.music = b.dataset.v; m.querySelectorAll('#sMusic button').forEach(x => x.setAttribute('aria-pressed', x === b)); saveSettings(); if (S.music !== 'off' && !Snd.on) { Snd.on = true; m.querySelector('#sSnd').checked = true; } startMusic(); });
     const rng = (id, key, out, fmt, after) => m.querySelector(id).addEventListener('input', e => { S[key] = +e.target.value; m.querySelector(out).textContent = fmt(S[key]); saveSettings(); after && after(); });
-    rng('#sRate', 'rate', '#oRate', v => v.toFixed(1) + '×');
+    rng('#sRate', 'rate', '#oRate', v => v.toFixed(1) + '×', () => { if (Narr.t && Narr.t.setRate) Narr.t.setRate(Math.min(1.5, Math.max(.7, S.rate))).catch(() => {}); });
     rng('#sVol', 'vol', '#oVol', v => Math.round(v * 100) + '%', setMusicVol);
     rng('#sWpm', 'wpm', '#oWpm', v => v + ' kata/mnt');
     rng('#sGoal', 'goal', '#oGoal', v => v + ' mnt');
@@ -1318,6 +1499,30 @@ function openSettings() {
     m.querySelector('#sAuto').addEventListener('change', e => { Auto.on = e.target.checked; });
     m.querySelector('#sFs').addEventListener('input', e => { S.fs = +e.target.value; m.querySelector('#oFs').textContent = S.fs + ' px'; saveSettings(); applySettings(); relayoutSoon(); });
     m.querySelector('#sLh').addEventListener('input', e => { S.lh = +e.target.value; m.querySelector('#oLh').textContent = S.lh.toFixed(2); saveSettings(); applySettings(); relayoutSoon(); });
+  });
+}
+
+function openLang() {
+  modal(`<div class="mrow"><h3>Bahasa baca</h3><button class="btn ghost small" data-close>Selesai</button></div>
+    <p class="note" style="margin:0">Pilih bahasa, lalu nyalakan tombol Suara. Tiap halaman diterjemahkan otomatis lalu dibacakan suara AI. Teks asli tetap tampil di halaman agar bisa dibandingkan.</p>
+    <div class="langs" id="lList">${LANGS.map(l => `<button data-v="${l[0]}" aria-pressed="${S.lang === l[0]}"><span>${l[1]}</span><small>${l[2] || 'ASLI'}</small></button>`).join('')}</div>
+    <label class="sw">Tampilkan teks terjemahan<input type="checkbox" id="lCap" ${S.cap ? 'checked' : ''}></label>
+    <div class="lbl">Suara AI</div>
+    <div class="seg" id="lVoice">${VOICES.map(v => `<button data-v="${v[0]}" aria-pressed="${S.voice === v[0]}">${v[1]}</button>`).join('')}</div>
+    <p class="note">Suara AI tersedia saat aplikasi dibuka di Claude lewat Chrome, Edge, atau aplikasi desktop. Di tempat lain dipakai suara bawaan perangkat. Terjemahan memakai kuota Claude akunmu.</p>`,
+  m => {
+    m.querySelector('#lList').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      S.lang = b.dataset.v; saveSettings(); Tr.off = false; Tr.warned = false;
+      m.querySelectorAll('#lList button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+    m.querySelector('#lCap').addEventListener('change', e => { S.cap = e.target.checked; saveSettings(); });
+    m.querySelector('#lVoice').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      S.voice = b.dataset.v; saveSettings();
+      m.querySelectorAll('#lVoice button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      if (Narr.t && !Narr.blocked) Narr.t.speak('Halo! Begini suara ini terdengar.', { voice: S.voice, language: 'id' }).catch(() => {});
+    });
   });
 }
 
@@ -1456,6 +1661,7 @@ document.addEventListener('click', e => {
     case 'mark': toggleMark(); break;
     case 'toc': openToc(); break;
     case 'copy': copyPage(); break;
+    case 'lang': openLang(); break;
     case 'continue': { const it = F.items[F.idx]; if (it) show('read', { bookId: it.bookId, key: { b: it.i, w: 0 } }); break; }
     case 'read': show('read', { bookId: t.dataset.id }); break;
     case 'del': {
@@ -1488,7 +1694,7 @@ let lastTap = 0, tapT;
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseAll(); else if (view === 'read' || view === 'feed') pageStart(true); });
 document.addEventListener('keydown', e => {
-  if ($('#modal')) { if (e.key === 'Escape') closeModal(); return; }
+  if ($('#modal')) { if (e.key === 'Escape') { e.preventDefault(); closeModal(); } return; }
   if (e.target.closest && e.target.closest('input, textarea')) return;
   const sc = view === 'read' ? readEl : view === 'feed' ? feedEl : null; if (!sc) return;
   if (e.key === 'm') { setSound(!Snd.on); return; }
