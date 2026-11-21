@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#070b16">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="Teman ngobrol AI berbasis suara, penerjemah langsung, dan teleprompter multi-bahasa.">
+  <title>LiveVoice AI</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- SVG icon sprite (offline, tanpa CDN) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="i-lang" viewBox="0 0 24 24"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></symbol>
+      <symbol id="i-prompter" viewBox="0 0 24 24"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+      <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+      <symbol id="i-volx" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+      <symbol id="i-swap" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+    </defs>
+  </svg>
+
+  <div id="app">
+    <!-- App bar -->
+    <header class="appbar">
+      <div class="brand">
+        <div class="logo"><svg><use href="#i-mic"/></svg></div>
+        <div>
+          <h1 id="title">LiveVoice AI</h1>
+          <div class="status"><span id="status-dot" class="dot"></span><span id="status-text">Siap</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="icon-btn" id="btn-tts" title="Suara jawaban on/off"><svg><use href="#i-vol"/></svg></button>
+        <button class="icon-btn" id="btn-copy" title="Salin percakapan"><svg><use href="#i-copy"/></svg></button>
+        <button class="icon-btn danger" id="btn-clear" title="Hapus riwayat"><svg><use href="#i-trash"/></svg></button>
+      </div>
+    </header>
+
+    <!-- ================= TAB 1: NGOBROL (Voice AI friend) ================= -->
+    <section class="view active" id="view-talk">
+      <div class="lang-chip-row">
+        <button class="chip" id="talk-lang-chip" title="Bahasa yang kamu ucapkan">
+          <svg><use href="#i-globe"/></svg><span id="talk-lang-label">Otomatis</span>
+        </button>
+        <span class="chip ghost" id="talk-engine-label">Universal AI</span>
+      </div>
+
+      <div class="scroll" id="talk-scroll">
+        <div class="empty" id="talk-empty">
+          <h2>Hai! Ayo ngobrol 👋</h2>
+          <p>Tekan bola di bawah lalu bicara dengan bahasa apa saja. Aku dengar, jawab, dan langsung bicara balik — lalu otomatis mendengarkan lagi, jadi kita bisa tektokan tanpa tekan-tekan tombol.</p>
+          <div class="suggest">
+            <button data-q="Ceritain fakta unik hari ini dong">Fakta unik hari ini</button>
+            <button data-q="Ajari aku 3 kalimat bahasa Jepang buat kenalan">Belajar bahasa Jepang</button>
+            <button data-q="Let's practice English conversation, ask me something">Latihan English</button>
+          </div>
+        </div>
+        <div class="msgs" id="talk-msgs"></div>
+      </div>
+
+      <div class="talk-dock">
+        <div class="live-caption" id="talk-live"></div>
+        <div class="orb-wrap">
+          <button class="side-btn" id="talk-keyboard" title="Ketik pesan"><svg><use href="#i-chat"/></svg></button>
+          <button class="orb" id="orb" aria-label="Mulai / berhenti ngobrol">
+            <span class="orb-ring"></span><span class="orb-ring r2"></span>
+            <span class="orb-core"><svg id="orb-icon"><use href="#i-mic"/></svg></span>
+          </button>
+          <button class="side-btn" id="talk-stop" title="Akhiri percakapan"><svg><use href="#i-stop"/></svg></button>
+        </div>
+        <div class="orb-hint" id="orb-hint">Ketuk untuk mulai ngobrol</div>
+        <form class="composer hidden" id="talk-form">
+          <input id="talk-input" type="text" autocomplete="off" placeholder="Ketik pesan…">
+          <button type="submit" class="send"><svg><use href="#i-send"/></svg></button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ================= TAB 2: TERJEMAH (Live interpreter) ================= -->
+    <section class="view" id="view-translate">
+      <div class="lang-bar">
+        <div class="lang-col">
+          <label>Bahasa A</label>
+          <select id="tr-lang-a"></select>
+        </div>
+        <button class="icon-btn" id="tr-swap" title="Tukar"><svg><use href="#i-swap"/></svg></button>
+        <div class="lang-col right">
+          <label>Bahasa B</label>
+          <select id="tr-lang-b"></select>
+        </div>
+      </div>
+      <div class="scroll" id="tr-scroll">
+        <div class="empty" id="tr-empty">
+          <h2>Penerjemah Langsung</h2>
+          <p>Mode juru bahasa dua arah. Tekan tombol bahasamu, bicara, lalu terjemahannya muncul &amp; dibacakan otomatis untuk lawan bicaramu.</p>
+        </div>
+        <div class="msgs" id="tr-msgs"></div>
+        <div class="bubble interim hidden" id="tr-interim">
+          <div class="meta"><span class="live-dot"></span>Mendengarkan…</div>
+          <p id="tr-interim-text">…</p>
+        </div>
+      </div>
+      <div class="tr-dock">
+        <button class="tr-mic a" id="tr-mic-a"><svg><use href="#i-mic"/></svg><span id="tr-mic-a-label">Indonesia</span></button>
+        <button class="tr-mic b" id="tr-mic-b"><svg><use href="#i-mic"/></svg><span id="tr-mic-b-label">English</span></button>
+      </div>
+      <form class="composer slim" id="tr-form">
+        <input id="tr-input" type="text" autocomplete="off" placeholder="Atau ketik teks untuk diterjemahkan (deteksi otomatis)…">
+        <button type="submit" class="send"><svg><use href="#i-send"/></svg></button>
+      </form>
+    </section>
+
+    <!-- ================= TAB 3: PROMPTER ================= -->
+    <section class="view" id="view-prompter">
+      <div class="toolbar">
+        <button class="pill" id="pr-edit"><svg><use href="#i-edit"/></svg><span id="pr-edit-label">Edit Naskah</span></button>
+        <button class="pill green" id="pr-translate"><svg><use href="#i-lang"/></svg>Terjemahkan</button>
+        <button class="pill amber" id="pr-listen"><svg><use href="#i-play"/></svg>Contoh Suara</button>
+        <div class="spacer"></div>
+        <div class="seg"><button id="pr-font-down">A-</button><span id="pr-font">28</span><button id="pr-font-up">A+</button></div>
+        <button class="icon-btn" id="pr-reset" title="Ulang dari awal"><svg><use href="#i-reset"/></svg></button>
+      </div>
+      <div class="pr-stats">
+        <span>Kemajuan <b id="pr-progress">0%</b></span>
+        <span>Kata <b id="pr-count">0 / 0</b></span>
+        <select id="pr-lang" title="Bahasa naskah"></select>
+        <select id="pr-template">
+          <option value="">Contoh naskah…</option>
+          <option value="id">🇮🇩 Pembukaan presentasi</option>
+          <option value="en">🇺🇸 Startup pitch</option>
+          <option value="ja">🇯🇵 Perkenalan Jepang</option>
+          <option value="ko">🇰🇷 Perkenalan Korea</option>
+          <option value="ar">🇸🇦 Pembukaan Arab</option>
+        </select>
+      </div>
+      <div class="pr-progressbar"><div id="pr-bar"></div></div>
+      <div class="scroll prompter" id="pr-view"></div>
+      <div class="pr-editor hidden" id="pr-editor">
+        <textarea id="pr-text" placeholder="Tempel atau tulis naskah di sini…"></textarea>
+        <div class="row">
+          <input type="file" id="pr-file" accept=".txt,.md,.srt,.csv" hidden>
+          <button class="pill" id="pr-upload">Upload file</button>
+          <button class="pill" id="pr-from-chat">Ambil dari obrolan</button>
+          <div class="spacer"></div>
+          <button class="pill primary" id="pr-save">Simpan</button>
+        </div>
+      </div>
+      <div class="pr-dock">
+        <button class="pr-mic" id="pr-mic"><svg><use href="#i-mic"/></svg><span id="pr-mic-label">Mulai Latihan</span></button>
+      </div>
+    </section>
+
+    <!-- ================= TAB 4: SETELAN ================= -->
+    <section class="view" id="view-settings">
+      <div class="scroll settings">
+        <div class="card">
+          <h3><svg><use href="#i-key"/></svg>Otak AI (Google Gemini)</h3>
+          <p class="muted">Butuh API key gratis dari <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Key hanya disimpan di HP ini.</p>
+          <label>API Key</label>
+          <div class="field-row">
+            <input id="set-key" type="password" placeholder="AIza…" autocomplete="off">
+            <button class="pill" id="set-key-show">Lihat</button>
+          </div>
+          <label>Model</label>
+          <input id="set-model" list="model-list" placeholder="gemini-flash-latest">
+          <datalist id="model-list">
+            <option value="gemini-flash-latest"><option value="gemini-flash-lite-latest"><option value="gemini-2.5-flash"><option value="gemini-2.5-flash-lite"><option value="gemini-2.5-pro">
+          </datalist>
+          <button class="pill primary full" id="set-test">Tes koneksi</button>
+          <div class="muted small" id="set-test-result"></div>
+        </div>
+
+        <div class="card">
+          <h3><svg><use href="#i-mic"/></svg>Cara mendengar</h3>
+          <div class="radio">
+            <label><input type="radio" name="engine" value="ai"> <b>Universal AI</b> — deteksi bahasa apa pun otomatis (paling akurat, perlu internet)</label>
+            <label><input type="radio" name="engine" value="device"> <b>Pengenal suara HP</b> — teks muncul real-time (bahasa mengikuti pilihan / terakhir terdeteksi)</label>
+          </div>
+          <label class="switch"><input type="checkbox" id="set-handsfree"><span>Hands-free: otomatis mendengar lagi setelah AI selesai bicara</span></label>
+          <label class="switch"><input type="checkbox" id="set-search"><span>Cari info terkini di Google (lebih akurat untuk berita/fakta)</span></label>
+          <label>Sensitivitas jeda bicara: <b id="set-silence-val"></b></label>
+          <input type="range" id="set-silence" min="500" max="2500" step="100">
+        </div>
+
+        <div class="card">
+          <h3><svg><use href="#i-vol"/></svg>Suara &amp; Kepribadian</h3>
+          <label>Nama teman AI</label>
+          <input id="set-name" placeholder="Nara">
+          <label>Gaya bicara</label>
+          <select id="set-style">
+            <option value="friend">Teman santai &amp; hangat</option>
+            <option value="tutor">Guru bahasa yang sabar</option>
+            <option value="pro">Asisten profesional &amp; ringkas</option>
+          </select>
+          <label>Kecepatan suara: <b id="set-rate-val"></b></label>
+          <input type="range" id="set-rate" min="0.6" max="1.6" step="0.05">
+          <label>Nada suara: <b id="set-pitch-val"></b></label>
+          <input type="range" id="set-pitch" min="0.6" max="1.5" step="0.05">
+          <button class="pill full" id="set-voice-test">Tes suara</button>
+        </div>
+
+        <div class="card">
+          <h3>Tentang</h3>
+          <p class="muted small">LiveVoice AI v2.0 · Teman ngobrol suara, penerjemah dua arah, dan teleprompter. <span id="platform-info"></span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="talk"><svg><use href="#i-chat"/></svg><span>Ngobrol</span></button>
+      <button class="nav-btn" data-view="translate"><svg><use href="#i-lang"/></svg><span>Terjemah</span></button>
+      <button class="nav-btn" data-view="prompter"><svg><use href="#i-prompter"/></svg><span>Prompter</span></button>
+      <button class="nav-btn" data-view="settings"><svg><use href="#i-settings"/></svg><span>Setelan</span></button>
+    </nav>
+  </div>
+
+  <!-- Language picker sheet -->
+  <div class="sheet-backdrop hidden" id="lang-sheet">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h3>Bahasa yang kamu ucapkan</h3>
+      <div class="lang-grid" id="lang-grid"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="vendor/capacitor.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

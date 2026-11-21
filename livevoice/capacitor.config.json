@@ -1,0 +1,16 @@
+{
+  "appId": "com.livevoice.ai",
+  "appName": "LiveVoice AI",
+  "webDir": "www",
+  "backgroundColor": "#070b16",
+  "android": {
+    "backgroundColor": "#070b16",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK"
+    }
+  }
+}

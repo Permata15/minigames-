@@ -1,0 +1,65 @@
+name: Build LiveVoice APK
+
+on:
+  push:
+    paths:
+      - 'livevoice/**'
+      - '.github/workflows/build-livevoice-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: livevoice
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: livevoice/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create Android project (permissions, icon, splash)
+        run: npm run android:init
+
+      - name: Build APK
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../LiveVoice-AI.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LiveVoice-AI-apk
+          path: livevoice/LiveVoice-AI.apk
+
+      - name: Publish to GitHub Release (download langsung dari HP)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: livevoice-latest
+          name: LiveVoice AI (build terbaru)
+          prerelease: true
+          make_latest: false
+          target_commitish: ${{ github.sha }}
+          body: |
+            APK terbaru LiveVoice AI dari commit ${{ github.sha }}.
+            Unduh **LiveVoice-AI.apk** di bawah, buka di HP Android, izinkan "instal dari sumber tidak dikenal".
+          files: livevoice/LiveVoice-AI.apk
