@@ -1,0 +1,39 @@
+# NeonAmp 🎧 — pemutar musik Android ala Winamp, tampilan neon futuristik
+
+Fitur:
+- **Cari & putar lagu dari YouTube** (streaming online) — tanpa API key, memakai NewPipeExtractor. Bisa juga tempel/bagikan link YouTube ke aplikasi.
+- **Tonton video YouTube** di dalam aplikasi (inline 16:9 atau layar penuh landscape), bisa pindah video ⇄ audio saja tanpa mengulang lagu.
+- **Video & audio dipisah**: video-only ≤720p H.264 + audio m4a di-stream/disimpan sebagai file terpisah lalu digabung saat diputar — lebih cepat mulai, ringan, dan mulus.
+- **Unduh video offline** (tab **Video**) dan **audio offline** (tab **Audio**) secara terpisah.
+- **6 mode tampilan** bergaya HUD robot: Mecha Unit, Neon Cyber, Synthwave Sunset, Aurora, Winamp Classic, Sakura Night (ikon palet di kanan atas). Maskot kepala robot beranimasi, panel bersudut armor, tombol heksagon.
+- **Pencarian luas**: sumber Lagu (YouTube Music), Video, Video Musik, atau Semua; saran kata kunci; gulir terus untuk hasil berikutnya; Shorts disaring.
+- **Kualitas**: audio Terbaik (bitrate tertinggi, Opus ±160 kbps) / Standar AAC / Hemat; video sampai 1080p (ikon ⚙ di kanan atas).
+- **Tab Audio**: cari di lagu offline, kelompokkan ke grup buatan sendiri, lihat per artis, urutkan (terbaru, judul, artis, durasi).
+- **Unduh untuk offline** — audio (m4a), sampul, dan lirik disimpan di penyimpanan aplikasi; tab **Offline**.
+- **Musik di HP** — pindai MP3/FLAC/M4A yang sudah ada di perangkat (tab **Di HP**).
+- **Lirik sinkron** (berjalan mengikuti lagu, ketuk baris untuk lompat) dari LRCLIB, ikut tersimpan saat diunduh.
+- Panel **LCD ala Winamp**: waktu bercahaya, judul berjalan, visualizer spektrum.
+- Shuffle, repeat (semua/satu), antrean, kontrol di notifikasi & lock screen, tetap main di background.
+
+## Ambil APK
+**Unduh langsung:** https://github.com/Permata15/minigames-/releases/latest/download/NeonAmp.apk
+(APK otomatis diperbarui setiap ada perubahan di folder `neonamp-android/`.)
+Pasang `NeonAmp.apk` di HP (izinkan "instal dari sumber tidak dikenal").
+
+## Build sendiri
+Butuh Android Studio / JDK 17 + Android SDK 35:
+```
+cd neonamp-android
+./gradlew assembleRelease
+```
+
+## Struktur
+- `data/YouTubeRepo.kt` — pencarian & URL audio YouTube
+- `data/DownloadManager.kt` — unduh offline
+- `data/Lyrics.kt` — lirik LRCLIB + parser LRC
+- `playback/PlaybackService.kt` — ExoPlayer (Media3) + MediaSession
+- `ui/` — Jetpack Compose (tema neon, LCD, visualizer, lirik)
+
+> Catatan: mengunduh dari YouTube bisa bertentangan dengan Ketentuan Layanan YouTube dan hak cipta.
+> Gunakan untuk penggunaan pribadi dan konten yang kamu punya haknya.
+> Jika suatu saat YouTube mengubah sistemnya dan lagu gagal diputar, perbarui versi `NewPipeExtractor` di `app/build.gradle.kts`.
