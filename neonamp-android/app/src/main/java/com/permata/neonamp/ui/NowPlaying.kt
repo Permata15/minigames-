@@ -104,11 +104,15 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         // Top bar
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Tutup", tint = Neon.Text) }
-            Text(
-                if (track.wantVideo) "NOW WATCHING" else "NOW PLAYING",
-                color = Neon.Dim, fontFamily = FontFamily.Monospace, letterSpacing = 4.sp,
-                fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
-            )
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                RobotHead(ui.isPlaying, Modifier.size(26.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (track.wantVideo) "NOW WATCHING" else "NOW PLAYING",
+                    color = Neon.Dim, fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
+                    fontSize = 12.sp, textAlign = TextAlign.Center,
+                )
+            }
             if (track.source == Source.YOUTUBE) {
                 // Pindah video ⇄ audio saja tanpa mengulang lagu
                 IconButton(onClick = vm::toggleVideoMode) {
@@ -151,9 +155,10 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                             .padding(8.dp)
                             .aspectRatio(1f)
                             .shadow(
-                                elevation = (28 * scale).dp, shape = RoundedCornerShape(24.dp),
+                                elevation = (28 * scale).dp, shape = HudShape(24.dp),
                                 ambientColor = Neon.Cyan, spotColor = Neon.Magenta,
-                            ),
+                            )
+                            .hudCorners(Neon.Cyan, len = 22.dp, stroke = 3.dp, inset = 8.dp),
                         corner = 24.dp,
                     )
                 }
@@ -177,11 +182,22 @@ private fun LcdPanel(ui: PlayerUi) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(HudShape(18.dp))
             .background(Neon.Lcd)
-            .border(1.dp, Brush.linearGradient(listOf(Neon.Cyan.copy(0.6f), Neon.Magenta.copy(0.6f))), RoundedCornerShape(18.dp))
+            .border(1.dp, Brush.linearGradient(listOf(Neon.Cyan.copy(0.6f), Neon.Magenta.copy(0.6f))), HudShape(18.dp))
+            .scanlines()
+            .hudCorners(Neon.Cyan, len = 10.dp, inset = 5.dp)
             .padding(14.dp)
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            HudLabel(if (t.wantVideo) "SYS://VIDEO_CORE" else "SYS://AUDIO_CORE", Neon.Cyan.copy(alpha = 0.7f))
+            Spacer(Modifier.weight(1f))
+            StatusDot(
+                when { ui.buffering -> "LOADING"; ui.isPlaying -> "PLAYING"; else -> "STANDBY" },
+                if (ui.isPlaying) Neon.Lime else Neon.Magenta,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (ui.isPlaying) "▶" else "❚❚", color = Neon.Lime, fontSize = 14.sp,
@@ -222,7 +238,7 @@ private fun LcdPanel(ui: PlayerUi) {
 private fun LcdTag(text: String, color: Color) {
     Text(
         text, color = color, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(3.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
+        modifier = Modifier.border(1.dp, color.copy(alpha = 0.5f), HudShape(3.dp)).padding(horizontal = 5.dp, vertical = 1.dp),
     )
 }
 
@@ -231,9 +247,9 @@ private fun ModeSwitch(labels: List<String>, selected: Int, onSelect: (Int) -> U
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(50))
+            .clip(HudShape(10.dp))
             .background(Neon.Panel)
-            .border(1.dp, Neon.Line, RoundedCornerShape(50))
+            .border(1.dp, Neon.Line, HudShape(10.dp))
             .padding(4.dp)
     ) {
         labels.forEachIndexed { i, label ->
@@ -245,7 +261,7 @@ private fun ModeSwitch(labels: List<String>, selected: Int, onSelect: (Int) -> U
                 textAlign = TextAlign.Center, fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(50))
+                    .clip(HudShape(10.dp))
                     .background(bg)
                     .clickable { onSelect(i) }
                     .padding(vertical = 8.dp),
@@ -320,7 +336,7 @@ private fun QueueView(ui: PlayerUi, onPlay: (Int) -> Unit) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
         itemsIndexed(ui.queue) { i, t ->
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPlay(i) }.padding(8.dp),
+                Modifier.fillMaxWidth().clip(HudShape(10.dp)).clickable { onPlay(i) }.padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -378,8 +394,8 @@ private fun Controls(ui: PlayerUi, vm: PlayerViewModel) {
         Box(
             Modifier
                 .size(76.dp)
-                .shadow(24.dp, CircleShape, ambientColor = Neon.Cyan, spotColor = Neon.Magenta)
-                .clip(CircleShape)
+                .shadow(24.dp, HexShape, ambientColor = Neon.Cyan, spotColor = Neon.Magenta)
+                .clip(HexShape)
                 .background(Neon.accent)
                 .clickable(onClick = vm::togglePlay),
             contentAlignment = Alignment.Center,

@@ -89,7 +89,7 @@ fun VideoSurface(player: Player?, modifier: Modifier = Modifier) {
 fun InlineVideo(player: Player?, buffering: Boolean, onFullscreen: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(HudShape(18.dp))
             .background(Color.Black)
     ) {
         VideoSurface(player, Modifier.fillMaxSize())
@@ -154,7 +154,7 @@ fun FullscreenVideo(vm: PlayerViewModel, ui: PlayerUi, player: Player?, onExit: 
                 ) {
                     IconButton(onClick = vm::previous) { Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(36.dp)) }
                     Box(
-                        Modifier.size(68.dp).clip(CircleShape).background(Neon.accent).clickable(onClick = vm::togglePlay),
+                        Modifier.size(68.dp).clip(HexShape).background(Neon.accent).clickable(onClick = vm::togglePlay),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(if (ui.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Neon.Bg, modifier = Modifier.size(40.dp))

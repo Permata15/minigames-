@@ -120,9 +120,9 @@ fun Artwork(url: String?, size: Dp?, modifier: Modifier = Modifier, corner: Dp =
     Box(
         modifier
             .then(if (size != null) Modifier.size(size) else Modifier)
-            .clip(RoundedCornerShape(corner))
+            .clip(HudShape(corner))
             .background(Brush.linearGradient(listOf(Neon.PanelHi, Neon.Panel)))
-            .border(1.dp, Neon.Line, RoundedCornerShape(corner)),
+            .border(1.dp, Neon.Line, HudShape(corner)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Rounded.MusicNote, null, tint = Neon.Dim)

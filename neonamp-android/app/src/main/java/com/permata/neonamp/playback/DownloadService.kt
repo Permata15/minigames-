@@ -59,7 +59,7 @@ class DownloadService : Service() {
 
     private fun build(title: String, percent: Int, indeterminate: Boolean) =
         NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(com.permata.neonamp.R.drawable.ic_stat_robot)
             .setContentTitle(title)
             .setContentText(if (indeterminate) "Menghubungkan ke YouTube…" else "$percent%")
             .setProgress(100, percent, indeterminate)

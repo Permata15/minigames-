@@ -11,6 +11,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.permata.neonamp.NeonAmpApp
 import com.permata.neonamp.data.Kind
+import com.permata.neonamp.data.AudioQuality
+import com.permata.neonamp.data.Prefs
 import com.permata.neonamp.data.LocalMusic
 import com.permata.neonamp.data.Lyrics
 import com.permata.neonamp.data.LyricsResult
@@ -208,19 +210,112 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- YouTube ----------
+    val searchFilter = MutableStateFlow(YouTubeRepo.Filter.SONGS)
+    private var page: YouTubeRepo.SearchPage? = null
+    private val _hasMore = MutableStateFlow(false)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+    private val _loadingMore = MutableStateFlow(false)
+    val loadingMore: StateFlow<Boolean> = _loadingMore.asStateFlow()
+    private val _suggestions = MutableStateFlow<List<String>>(emptyList())
+    val suggestions: StateFlow<List<String>> = _suggestions.asStateFlow()
+    private var suggestJob: Job? = null
+    private var searchJob: Job? = null
+
+    fun onQueryChange(q: String) {
+        query.value = q
+        suggestJob?.cancel()
+        if (q.trim().length < 2 || YouTubeRepo.extractUrl(q) != null) {
+            _suggestions.value = emptyList(); return
+        }
+        suggestJob = viewModelScope.launch {
+            delay(280)
+            _suggestions.value = YouTubeRepo.suggestions(q.trim())
+        }
+    }
+
+    fun clearSuggestions() { suggestJob?.cancel(); _suggestions.value = emptyList() }
+
+    fun pickSuggestion(s: String) {
+        query.value = s
+        search()
+    }
+
+    fun setFilter(f: YouTubeRepo.Filter) {
+        if (searchFilter.value == f) return
+        searchFilter.value = f
+        if (query.value.isNotBlank()) search()
+    }
+
     fun search() {
         val q = query.value.trim()
         if (q.isEmpty()) return
-        viewModelScope.launch {
+        clearSuggestions()
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
             _searching.value = true
+            _results.value = emptyList()
+            _hasMore.value = false
             runCatching {
                 val url = YouTubeRepo.extractUrl(q)
-                if (url != null) listOf(YouTubeRepo.fromUrl(url)) else YouTubeRepo.search(q)
-            }.onSuccess { _results.value = it }
-                .onFailure { _message.value = "Pencarian gagal: ${it.message ?: "periksa koneksi"}" }
+                if (url != null) {
+                    page = null
+                    listOf(YouTubeRepo.fromUrl(url))
+                } else {
+                    val filter = searchFilter.value
+                    val p = runCatching { YouTubeRepo.search(q, filter) }.getOrElse { e ->
+                        // Katalog YouTube Music kadang tidak tersedia → pakai pencarian video biasa.
+                        if (filter == YouTubeRepo.Filter.VIDEOS || e is kotlinx.coroutines.CancellationException) throw e
+                        _message.value = "Sumber \"${filter.label}\" sedang tidak tersedia, memakai Video"
+                        YouTubeRepo.search(q, YouTubeRepo.Filter.VIDEOS)
+                    }
+                    page = p
+                    _hasMore.value = p.hasMore
+                    p.tracks
+                }
+            }.onSuccess {
+                _results.value = it
+                if (it.isEmpty()) _message.value = "Tidak ada hasil untuk \"$q\""
+            }.onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                _message.value = "Pencarian gagal: ${it.message ?: "periksa koneksi"}"
+            }
             _searching.value = false
         }
     }
+
+    /** Muat halaman hasil berikutnya saat daftar digulir ke bawah. */
+    fun loadMore() {
+        val p = page ?: return
+        if (!p.hasMore || _loadingMore.value || _searching.value) return
+        viewModelScope.launch {
+            _loadingMore.value = true
+            runCatching { YouTubeRepo.more(p) }
+                .onSuccess { next ->
+                    page = next
+                    _hasMore.value = next.hasMore
+                    val seen = _results.value.map { it.id }.toHashSet()
+                    _results.value = _results.value + next.tracks.filter { seen.add(it.id) }
+                }
+                .onFailure { _hasMore.value = false }
+            _loadingMore.value = false
+        }
+    }
+
+    // ---------- Kualitas ----------
+    val audioQuality = Prefs.audio
+    val videoMax = Prefs.videoMax
+    fun setAudioQuality(q: AudioQuality) = Prefs.setAudio(q)
+    fun setVideoMax(h: Int) = Prefs.setVideoMax(h)
+
+    // ---------- Grup (playlist) audio offline ----------
+    val playlists = neon.playlists.playlists
+    fun createPlaylist(name: String, track: Track? = null) {
+        neon.playlists.create(name, track?.id)
+        _message.value = if (track != null) "Grup \"$name\" dibuat & lagu ditambahkan" else "Grup \"$name\" dibuat"
+    }
+    fun renamePlaylist(id: String, name: String) = neon.playlists.rename(id, name)
+    fun deletePlaylist(id: String) { neon.playlists.delete(id); _message.value = "Grup dihapus (lagunya tetap ada)" }
+    fun togglePlaylist(id: String, track: Track) = neon.playlists.toggle(id, track.id)
 
     fun handleSharedText(text: String) {
         val url = YouTubeRepo.extractUrl(text) ?: return
@@ -240,6 +335,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteOffline(track: Track, kind: Kind) {
         neon.downloads.library(kind).remove(track)
+        if (kind == Kind.AUDIO) neon.playlists.removeTrackEverywhere(track.id)
         _message.value = if (kind == Kind.VIDEO) "Video dihapus" else "Audio dihapus"
     }
 

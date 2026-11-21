@@ -96,6 +96,14 @@ import androidx.compose.material3.DropdownMenuItem
 import com.permata.neonamp.data.DownloadManager
 import com.permata.neonamp.data.Kind
 import com.permata.neonamp.data.Track
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.rounded.NorthWest
+import androidx.compose.material.icons.rounded.Tune
+import com.permata.neonamp.data.YouTubeRepo
 
 @Composable
 fun NeonAmpRoot(vm: PlayerViewModel) {
@@ -127,7 +135,7 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
             },
         ) { pad ->
             Column(Modifier.padding(pad).fillMaxSize()) {
-                Header()
+                Header(ui.isPlaying)
                 when (tab) {
                     0 -> SearchTab(vm, ui)
                     1 -> AudioTab(vm, ui)
@@ -148,25 +156,37 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
 }
 
 @Composable
-private fun Header() {
+private fun Header(playing: Boolean) {
     var picker by remember { mutableStateOf(false) }
+    var settings by remember { mutableStateOf(false) }
     if (picker) ThemePicker(onDismiss = { picker = false })
+    if (settings) QualityDialog(onDismiss = { settings = false })
     Row(
-        Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            "NEON",
-            style = TextStyle(
-                brush = Neon.accent, fontSize = 26.sp, fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
-            )
-        )
-        Text(
-            "//AMP", color = Neon.Text, fontSize = 26.sp, fontWeight = FontWeight.Light,
-            fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
-        )
+        RobotHead(playing, Modifier.size(46.dp))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Row {
+                Text(
+                    "NEON",
+                    style = TextStyle(
+                        brush = Neon.accent, fontSize = 24.sp, fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
+                    )
+                )
+                Text(
+                    "//AMP", color = Neon.Text, fontSize = 24.sp, fontWeight = FontWeight.Light,
+                    fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
+                )
+            }
+            StatusDot(if (playing) "UNIT-01 · MEMUTAR" else "UNIT-01 · ONLINE")
+        }
         Spacer(Modifier.weight(1f))
+        IconButton(onClick = { settings = true }) {
+            Icon(Icons.Rounded.Tune, "Kualitas audio & video", tint = Neon.Cyan)
+        }
         IconButton(onClick = { picker = true }) {
             Icon(Icons.Rounded.Palette, "Ganti tema", tint = Neon.Cyan)
         }
@@ -187,7 +207,7 @@ private fun BottomNav(selected: Int, onSelect: (Int) -> Unit) {
                 selected = selected == i,
                 onClick = { onSelect(i) },
                 icon = { Icon(icon, label) },
-                label = { Text(label) },
+                label = { Text(label.uppercase(), fontFamily = FontFamily.Monospace, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = Neon.Cyan,
                     selectedTextColor = Neon.Cyan,
@@ -207,9 +227,10 @@ private fun MiniPlayer(ui: PlayerUi, onOpen: () -> Unit, onToggle: () -> Unit, o
     Column(
         Modifier
             .padding(horizontal = 10.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(HudShape(16.dp))
             .background(Neon.panelGlow)
-            .border(1.dp, Neon.Line, RoundedCornerShape(16.dp))
+            .border(1.dp, Neon.Line, HudShape(16.dp))
+            .hudCorners(Neon.Cyan.copy(alpha = 0.8f), len = 8.dp, inset = 3.dp)
             .clickable(onClick = onOpen)
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -241,23 +262,41 @@ private fun SearchTab(vm: PlayerViewModel, ui: PlayerUi) {
     val downloads by vm.downloads.collectAsStateWithLifecycle()
     val audioLib by vm.audioLibrary.collectAsStateWithLifecycle()
     val videoLib by vm.videoLibrary.collectAsStateWithLifecycle()
+    val suggestions by vm.suggestions.collectAsStateWithLifecycle()
+    val filter by vm.searchFilter.collectAsStateWithLifecycle()
+    val hasMore by vm.hasMore.collectAsStateWithLifecycle()
+    val loadingMore by vm.loadingMore.collectAsStateWithLifecycle()
+    val audioQ by vm.audioQuality.collectAsStateWithLifecycle()
+    val videoMax by vm.videoMax.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
     val audioIds = remember(audioLib) { audioLib.map { it.id }.toSet() }
     val videoIds = remember(videoLib) { videoLib.map { it.id }.toSet() }
+    var focused by remember { mutableStateOf(false) }
+
+    // Gulir mendekati akhir → muat halaman hasil berikutnya otomatis.
+    val listState = rememberLazyListState()
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 4
+        }
+    }
+    LaunchedEffect(nearEnd, results.size, hasMore) { if (nearEnd && hasMore) vm.loadMore() }
 
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = query,
-            onValueChange = { vm.query.value = it },
-            placeholder = { Text("Cari lagu / video YouTube atau tempel link…", color = Neon.Dim) },
+            onValueChange = vm::onQueryChange,
+            placeholder = { Text("Cari lagu, artis, album, atau tempel link…", color = Neon.Dim) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Neon.Cyan) },
             trailingIcon = {
-                if (query.isNotEmpty()) IconButton(onClick = { vm.query.value = "" }) {
+                if (query.isNotEmpty()) IconButton(onClick = { vm.onQueryChange("") }) {
                     Icon(Icons.Rounded.Close, null, tint = Neon.Dim)
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
+            shape = HudShape(14.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); vm.search() }),
             colors = OutlinedTextFieldDefaults.colors(
@@ -269,8 +308,68 @@ private fun SearchTab(vm: PlayerViewModel, ui: PlayerUi) {
                 focusedTextColor = Neon.Text,
                 unfocusedTextColor = Neon.Text,
             ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .onFocusChanged { focused = it.isFocused },
         )
+
+        // Saran kata kunci dari YouTube
+        if (focused && suggestions.isNotEmpty()) {
+            Column(
+                Modifier
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .fillMaxWidth()
+                    .clip(HudShape(10.dp))
+                    .background(Neon.PanelHi)
+                    .border(1.dp, Neon.Line, HudShape(10.dp))
+            ) {
+                suggestions.forEach { s ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { keyboard?.hide(); vm.pickSuggestion(s) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Search, null, tint = Neon.Dim, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(s, color = Neon.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Icon(Icons.Rounded.NorthWest, "Pakai", tint = Neon.Dim, modifier = Modifier.size(16.dp)
+                            .clickable { vm.onQueryChange("$s ") })
+                    }
+                }
+            }
+        }
+
+        // Sumber pencarian
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            YouTubeRepo.Filter.entries.forEach { f ->
+                HudChip(
+                    when (f) {
+                        YouTubeRepo.Filter.SONGS -> "♪ LAGU · YT MUSIC"
+                        YouTubeRepo.Filter.VIDEOS -> "▶ VIDEO"
+                        YouTubeRepo.Filter.MUSIC_VIDEOS -> "◉ VIDEO MUSIK"
+                        YouTubeRepo.Filter.ALL -> "✦ SEMUA"
+                    },
+                    selected = f == filter,
+                    onClick = { vm.setFilter(f) },
+                )
+            }
+        }
+        Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            HudLabel("SYS://YOUTUBE", Neon.Cyan.copy(alpha = 0.7f))
+            Spacer(Modifier.weight(1f))
+            HudLabel("AUDIO ${audioQ.label.uppercase()} · VIDEO ≤${videoMax}p", Neon.Lime.copy(alpha = 0.8f))
+        }
+
         if (searching) {
             LinearProgressIndicator(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -279,48 +378,58 @@ private fun SearchTab(vm: PlayerViewModel, ui: PlayerUi) {
         }
         if (results.isEmpty() && !searching) {
             EmptyState(
-                Icons.Rounded.Search, "Cari lagu & video favoritmu",
-                "Ketuk lagu untuk audio, ikon ▶ layar untuk video. Unduh audio atau video agar bisa diputar offline.",
+                Icons.Rounded.Search, "Siap mencari, Kapten",
+                "Pilih \"Lagu · YT Music\" untuk rekaman resmi berkualitas tinggi, atau \"Video\" untuk semua video. Gulir ke bawah untuk hasil lebih banyak.",
             )
         }
-        TrackList(results) { index, track ->
-            val aState = downloads[DownloadManager.key(Kind.AUDIO, track.id)]
-            val vState = downloads[DownloadManager.key(Kind.VIDEO, track.id)]
-            TrackRow(
-                track = track,
-                active = ui.track?.id == track.id,
-                onClick = { vm.playList(results, index) },
-                badges = {
-                    if (track.id in audioIds) Badge("AUDIO ✓", Neon.Lime)
-                    if (track.id in videoIds) Badge("VIDEO ✓", Neon.Lime)
-                    if (aState != null) Badge(progressLabel("AUDIO", aState), if (aState < 0) Neon.Magenta else Neon.Cyan)
-                    if (vState != null) Badge(progressLabel("VIDEO", vState), if (vState < 0) Neon.Magenta else Neon.Cyan)
-                },
-            ) {
-                IconButton(onClick = { vm.playList(results, index, video = true) }) {
-                    Icon(Icons.Rounded.SmartDisplay, "Tonton video", tint = Neon.Magenta)
-                }
-                TrackMenu(
+        LazyColumn(state = listState, contentPadding = PaddingValues(vertical = 8.dp), modifier = Modifier.fillMaxSize()) {
+            itemsIndexed(results, key = { i, t -> "$i-${t.id}" }) { index, track ->
+                val aState = downloads[DownloadManager.key(Kind.AUDIO, track.id)]
+                val vState = downloads[DownloadManager.key(Kind.VIDEO, track.id)]
+                TrackRow(
                     track = track,
-                    audioSaved = track.id in audioIds,
-                    videoSaved = track.id in videoIds,
-                    audioState = aState,
-                    videoState = vState,
-                    vm = vm,
-                )
+                    active = ui.track?.id == track.id,
+                    onClick = { vm.playList(results, index) },
+                    badges = {
+                        if (track.id in audioIds) Badge("AUDIO ✓", Neon.Lime)
+                        if (track.id in videoIds) Badge("VIDEO ✓", Neon.Lime)
+                        if (aState != null) Badge(progressLabel("AUDIO", aState), if (aState < 0) Neon.Magenta else Neon.Cyan)
+                        if (vState != null) Badge(progressLabel("VIDEO", vState), if (vState < 0) Neon.Magenta else Neon.Cyan)
+                    },
+                ) {
+                    IconButton(onClick = { vm.playList(results, index, video = true) }) {
+                        Icon(Icons.Rounded.SmartDisplay, "Tonton video", tint = Neon.Magenta)
+                    }
+                    TrackMenu(
+                        track = track,
+                        audioSaved = track.id in audioIds,
+                        videoSaved = track.id in videoIds,
+                        audioState = aState,
+                        videoState = vState,
+                        vm = vm,
+                    )
+                }
+            }
+            if (results.isNotEmpty()) item(key = "footer") {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        loadingMore || hasMore -> CircularProgressIndicator(Modifier.size(24.dp), color = Neon.Cyan, strokeWidth = 2.dp)
+                        else -> HudLabel("— ${results.size} HASIL · AKHIR DATA —")
+                    }
+                }
             }
         }
     }
 }
 
-private fun progressLabel(kind: String, p: Float) = when {
+internal fun progressLabel(kind: String, p: Float) = when {
     p < 0f -> "$kind GAGAL"
     p == 0f -> "$kind …"
     else -> "$kind ${(p * 100).toInt()}%"
 }
 
 @Composable
-private fun TrackMenu(
+internal fun TrackMenu(
     track: Track,
     audioSaved: Boolean,
     videoSaved: Boolean,
@@ -381,7 +490,7 @@ fun Badge(text: String, color: Color) {
         text, color = color, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
         modifier = Modifier
             .padding(end = 6.dp)
-            .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+            .border(1.dp, color.copy(alpha = 0.6f), HudShape(4.dp))
             .padding(horizontal = 4.dp, vertical = 1.dp),
     )
 }
@@ -403,27 +512,6 @@ fun DownloadButton(progress: Float?, offline: Boolean, icon: ImageVector, onDown
                 progress = { progress }, modifier = Modifier.size(24.dp),
                 color = Neon.Cyan, trackColor = Neon.Line, strokeWidth = 2.dp,
             )
-        }
-    }
-}
-
-// ---------------- Tab: Audio offline ----------------
-@Composable
-private fun AudioTab(vm: PlayerViewModel, ui: PlayerUi) {
-    val library by vm.audioLibrary.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize()) {
-        SectionBar("${library.size} audio offline", enabled = library.isNotEmpty(),
-            onPlayAll = { vm.playList(library, 0) },
-            onShuffle = { vm.playList(library.shuffled(), 0) })
-        if (library.isEmpty()) {
-            EmptyState(Icons.Rounded.MusicNote, "Belum ada audio offline", "Di tab Cari, ketuk ikon unduh → \"Unduh audio\".")
-        }
-        TrackList(library) { index, track ->
-            TrackRow(track, ui.track?.id == track.id && ui.track?.wantVideo != true, onClick = { vm.playList(library, index) }) {
-                IconButton(onClick = { vm.deleteOffline(track, Kind.AUDIO) }) {
-                    Icon(Icons.Rounded.Delete, "Hapus", tint = Neon.Dim)
-                }
-            }
         }
     }
 }
@@ -461,21 +549,21 @@ private fun VideoCard(t: Track, active: Boolean, onClick: () -> Unit, onAudioOnl
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(HudShape(16.dp))
             .background(Neon.panelGlow)
-            .border(1.dp, if (active) Neon.Cyan else Neon.Line, RoundedCornerShape(16.dp))
+            .border(1.dp, if (active) Neon.Cyan else Neon.Line, HudShape(16.dp))
             .clickable(onClick = onClick)
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
             Artwork(t.artworkUrl, null, Modifier.fillMaxSize(), corner = 0.dp)
             Box(
-                Modifier.align(Alignment.Center).size(54.dp).clip(CircleShape).background(Neon.Bg.copy(alpha = 0.6f)),
+                Modifier.align(Alignment.Center).size(54.dp).clip(HexShape).background(Neon.Bg.copy(alpha = 0.6f)),
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Rounded.PlayArrow, null, tint = Neon.Cyan, modifier = Modifier.size(34.dp)) }
             Text(
                 formatTime(t.durationMs), color = Neon.Text, fontFamily = FontFamily.Monospace, fontSize = 11.sp,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
-                    .clip(RoundedCornerShape(4.dp)).background(Neon.Bg.copy(alpha = 0.75f)).padding(horizontal = 5.dp, vertical = 1.dp),
+                    .clip(HudShape(4.dp)).background(Neon.Bg.copy(alpha = 0.75f)).padding(horizontal = 5.dp, vertical = 1.dp),
             )
         }
         Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -513,7 +601,7 @@ private fun DeviceTab(vm: PlayerViewModel, ui: PlayerUi) {
 }
 
 @Composable
-private fun SectionBar(
+internal fun SectionBar(
     title: String,
     enabled: Boolean,
     onPlayAll: () -> Unit,
@@ -528,7 +616,7 @@ private fun SectionBar(
         extra()
         IconButton(onClick = onShuffle, enabled = enabled) { Icon(Icons.Rounded.Shuffle, "Acak", tint = if (enabled) Neon.Text else Neon.Line) }
         Box(
-            Modifier.size(40.dp).clip(CircleShape)
+            Modifier.size(40.dp).clip(HexShape)
                 .background(if (enabled) Neon.accent else Brush.linearGradient(listOf(Neon.Line, Neon.Line)))
                 .clickable(enabled = enabled, onClick = onPlayAll),
             contentAlignment = Alignment.Center,
@@ -537,7 +625,7 @@ private fun SectionBar(
 }
 
 @Composable
-private fun TrackList(
+internal fun TrackList(
     tracks: List<Track>,
     row: @Composable (Int, Track) -> Unit,
 ) {
@@ -564,7 +652,7 @@ fun TrackRow(
     ) {
         Box {
             Artwork(track.artworkUrl, 52.dp, corner = 10.dp)
-            if (active) Box(Modifier.size(52.dp).border(1.5.dp, Neon.Cyan, RoundedCornerShape(10.dp)))
+            if (active) Box(Modifier.size(52.dp).border(1.5.dp, Neon.Cyan, HudShape(10.dp)))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -597,19 +685,22 @@ fun SourceTag(track: Track) {
         label, color = color, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
         modifier = Modifier
             .padding(end = 6.dp)
-            .border(1.dp, color.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+            .border(1.dp, color.copy(alpha = 0.6f), HudShape(4.dp))
             .padding(horizontal = 4.dp, vertical = 1.dp),
     )
 }
 
 @Composable
-private fun EmptyState(icon: ImageVector, title: String, subtitle: String) {
+internal fun EmptyState(icon: ImageVector, title: String, subtitle: String) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(icon, null, tint = Neon.Cyan.copy(alpha = 0.6f), modifier = Modifier.size(48.dp))
+        Box(contentAlignment = Alignment.BottomEnd) {
+            RobotHead(false, Modifier.size(84.dp))
+            Icon(icon, null, tint = Neon.Magenta, modifier = Modifier.size(22.dp))
+        }
         Text(title, color = Neon.Text, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         Text(subtitle, color = Neon.Dim, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }

@@ -5,7 +5,10 @@ Fitur:
 - **Tonton video YouTube** di dalam aplikasi (inline 16:9 atau layar penuh landscape), bisa pindah video ⇄ audio saja tanpa mengulang lagu.
 - **Video & audio dipisah**: video-only ≤720p H.264 + audio m4a di-stream/disimpan sebagai file terpisah lalu digabung saat diputar — lebih cepat mulai, ringan, dan mulus.
 - **Unduh video offline** (tab **Video**) dan **audio offline** (tab **Audio**) secara terpisah.
-- **5 mode tampilan**: Neon Cyber, Synthwave Sunset, Aurora, Winamp Classic, Sakura Night (ikon palet di kanan atas).
+- **6 mode tampilan** bergaya HUD robot: Mecha Unit, Neon Cyber, Synthwave Sunset, Aurora, Winamp Classic, Sakura Night (ikon palet di kanan atas). Maskot kepala robot beranimasi, panel bersudut armor, tombol heksagon.
+- **Pencarian luas**: sumber Lagu (YouTube Music), Video, Video Musik, atau Semua; saran kata kunci; gulir terus untuk hasil berikutnya; Shorts disaring.
+- **Kualitas**: audio Terbaik (bitrate tertinggi, Opus ±160 kbps) / Standar AAC / Hemat; video sampai 1080p (ikon ⚙ di kanan atas).
+- **Tab Audio**: cari di lagu offline, kelompokkan ke grup buatan sendiri, lihat per artis, urutkan (terbaru, judul, artis, durasi).
 - **Unduh untuk offline** — audio (m4a), sampul, dan lirik disimpan di penyimpanan aplikasi; tab **Offline**.
 - **Musik di HP** — pindai MP3/FLAC/M4A yang sudah ada di perangkat (tab **Di HP**).
 - **Lirik sinkron** (berjalan mengikuti lagu, ketuk baris untuk lompat) dari LRCLIB, ikut tersimpan saat diunduh.

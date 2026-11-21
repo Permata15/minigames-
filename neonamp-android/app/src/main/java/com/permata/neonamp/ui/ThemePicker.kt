@@ -49,12 +49,12 @@ fun ThemePicker(onDismiss: () -> Unit) {
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(HudShape(14.dp))
                             .background(Brush.verticalGradient(listOf(p.panelHi, p.bg)))
                             .border(
                                 if (selected) 2.dp else 1.dp,
                                 if (selected) p.primary else p.line,
-                                RoundedCornerShape(14.dp),
+                                HudShape(14.dp),
                             )
                             .clickable { Neon.select(context, p) }
                             .padding(12.dp),
@@ -63,13 +63,13 @@ fun ThemePicker(onDismiss: () -> Unit) {
                         // Mini pratinjau: bar spektrum dengan warna tema
                         Row(
                             Modifier.size(width = 44.dp, height = 30.dp)
-                                .clip(RoundedCornerShape(6.dp)).background(p.lcd).padding(4.dp),
+                                .clip(HudShape(6.dp)).background(p.lcd).padding(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(2.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             listOf(0.5f, 0.9f, 0.65f, 1f, 0.4f).forEach { h ->
                                 Box(
-                                    Modifier.width(5.dp).height((22 * h).dp).clip(RoundedCornerShape(1.dp))
+                                    Modifier.width(5.dp).height((22 * h).dp).clip(HudShape(1.dp))
                                         .background(Brush.verticalGradient(listOf(p.secondary, p.tertiary, p.primary)))
                                 )
                             }

@@ -31,6 +31,13 @@ data class Palette(
 
 val Palettes = listOf(
     Palette(
+        "mecha", "Mecha Unit", "Armor baja & visor oranye robot",
+        bg = Color(0xFF0A0C0F), bgTop = Color(0xFF1A1F26), panel = Color(0xFF13171C),
+        panelHi = Color(0xFF1C2229), line = Color(0xFF2E3640), lcd = Color(0xFF06080A),
+        primary = Color(0xFFFF7A1A), secondary = Color(0xFFFF2E4D), tertiary = Color(0xFFFFC400),
+        ok = Color(0xFF39FF88), text = Color(0xFFE8EDF2), dim = Color(0xFF8C97A3),
+    ),
+    Palette(
         "neon", "Neon Cyber", "Cyan & magenta futuristik",
         bg = Color(0xFF07080F), bgTop = Color(0xFF0D0B22), panel = Color(0xFF10121F),
         panelHi = Color(0xFF181B2E), line = Color(0xFF262A45), lcd = Color(0xFF05060C),
@@ -72,7 +79,7 @@ val Palettes = listOf(
  * otomatis diperbarui saat tema diganti.
  */
 object Neon {
-    var palette by mutableStateOf(Palettes[0])
+    var palette by mutableStateOf(Palettes.first { it.key == "neon" })
 
     val Bg get() = palette.bg
     val BgTop get() = palette.bgTop
