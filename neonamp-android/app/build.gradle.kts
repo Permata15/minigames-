@@ -12,8 +12,8 @@ android {
         applicationId = "com.permata.neonamp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
     }
 
     // Kunci tetap (disimpan di repo) supaya setiap APK baru bisa dipasang menimpa versi lama.
@@ -28,7 +28,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: APK lebih kecil & lebih cepat
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("neonamp")
         }
     }

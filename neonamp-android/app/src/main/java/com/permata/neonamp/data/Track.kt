@@ -25,6 +25,8 @@ data class Track(
     val localPath: String? = null,
     /** File video tanpa suara (offline). Audio-nya tetap di [localPath]. */
     val videoPath: String? = null,
+    /** File subtitle .vtt (video offline). */
+    val subtitlePath: String? = null,
     /** Putar dengan gambar video. Video & audio di-stream/disimpan terpisah lalu digabung saat diputar. */
     val wantVideo: Boolean = false,
 ) {
@@ -76,6 +78,7 @@ data class Track(
         put("localPath", localPath ?: "")
         put("videoPath", videoPath ?: "")
         put("wantVideo", wantVideo)
+        put("subtitlePath", subtitlePath ?: "")
     }
 
     companion object {
@@ -92,6 +95,7 @@ data class Track(
             localPath = o.optString("localPath").ifBlank { null },
             videoPath = o.optString("videoPath").ifBlank { null },
             wantVideo = o.optBoolean("wantVideo", false),
+            subtitlePath = o.optString("subtitlePath").ifBlank { null },
         )
 
         fun fromMediaItem(item: MediaItem?): Track? {

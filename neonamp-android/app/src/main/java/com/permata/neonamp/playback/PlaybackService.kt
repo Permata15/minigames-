@@ -20,6 +20,11 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.permata.neonamp.MainActivity
 import com.permata.neonamp.data.NetDownloader
 import com.permata.neonamp.data.YouTubeRepo
+import com.permata.neonamp.data.Prefs
+import com.permata.neonamp.data.StreamStability
+import androidx.media3.exoplayer.DefaultLoadControl
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -33,6 +38,8 @@ import com.permata.neonamp.data.Track
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
+    private val stabilizer = VolumeStabilizer()
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
@@ -54,7 +61,16 @@ class PlaybackService : MediaSessionService() {
             }
         }
 
+        // Penstabil streaming: buffer besar agar tidak putus-putus di sinyal lemah.
+        val loadControl = if (Prefs.stability.value == StreamStability.STABLE) {
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(30_000, 120_000, 2_000, 5_000)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build()
+        } else DefaultLoadControl()
+
         val player = ExoPlayer.Builder(this)
+            .setLoadControl(loadControl)
             .setMediaSourceFactory(AvMediaSourceFactory(DefaultMediaSourceFactory(resolving), resolving))
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -66,6 +82,13 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+
+        // Penstabil volume (bisa dinyalakan/dimatikan dari Pengaturan)
+        stabilizer.attach(player.audioSessionId)
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) = stabilizer.attach(audioSessionId)
+        })
+        scope.launch { Prefs.volumeStabilizer.collect { stabilizer.setEnabled(it) } }
 
         val openApp = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
@@ -109,6 +132,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
+        stabilizer.release()
         session?.run {
             player.release()
             release()

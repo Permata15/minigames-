@@ -42,7 +42,7 @@ class Library(context: Context, name: String) {
 
     fun remove(track: Track) {
         val stored = get(track.id) ?: track
-        listOfNotNull(stored.localPath, stored.videoPath).forEach { File(it).delete() }
+        listOfNotNull(stored.localPath, stored.videoPath, stored.subtitlePath).forEach { File(it).delete() }
         stored.artworkUrl?.takeIf { it.startsWith("file:") }?.let { File(android.net.Uri.parse(it).path ?: "").delete() }
         _tracks.update { list -> list.filterNot { it.id == track.id }.also(::save) }
     }

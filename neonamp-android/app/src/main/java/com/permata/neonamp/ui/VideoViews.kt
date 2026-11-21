@@ -25,6 +25,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.ClosedCaptionDisabled
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.permata.neonamp.data.CaptionMode
+import com.permata.neonamp.data.Subtitles
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -84,16 +92,70 @@ fun VideoSurface(player: Player?, modifier: Modifier = Modifier) {
     )
 }
 
-/** Video di dalam layar Now Playing (16:9) dengan tombol layar penuh. */
+/** Teks subtitle / lirik di atas video (bisa dinyalakan & dimatikan dengan tombol CC). */
 @Composable
-fun InlineVideo(player: Player?, buffering: Boolean, onFullscreen: () -> Unit, modifier: Modifier = Modifier) {
+fun CaptionOverlay(vm: PlayerViewModel, ui: PlayerUi, lyrics: LyricsState, big: Boolean, modifier: Modifier = Modifier) {
+    val mode by vm.captionMode.collectAsStateWithLifecycle()
+    val cues by vm.cues.collectAsStateWithLifecycle()
+    val text: String? = when (mode) {
+        CaptionMode.OFF -> null
+        CaptionMode.SUBS -> Subtitles.at(cues, ui.positionMs)
+        CaptionMode.LYRICS -> (lyrics as? LyricsState.Ready)?.result?.takeIf { it.synced }?.lines
+            ?.lastOrNull { it.timeMs <= ui.positionMs + 250 }?.text?.ifBlank { null }
+    }
+    if (text.isNullOrBlank()) return
+    Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (big) 56.dp else 10.dp), contentAlignment = Alignment.BottomCenter) {
+        Text(
+            text,
+            color = if (mode == CaptionMode.LYRICS) Neon.Cyan else Color.White,
+            fontSize = if (big) 20.sp else 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .clip(HudShape(6.dp))
+                .background(Color.Black.copy(alpha = 0.62f))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+    }
+}
+
+/** Tombol CC: Subtitle → Lirik → Mati. */
+@Composable
+fun CaptionButton(vm: PlayerViewModel, modifier: Modifier = Modifier) {
+    val mode by vm.captionMode.collectAsStateWithLifecycle()
+    Row(
+        modifier
+            .clip(HudShape(6.dp))
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(onClick = vm::cycleCaption)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (mode == CaptionMode.OFF) Icons.Rounded.ClosedCaptionDisabled else Icons.Rounded.ClosedCaption,
+            "Subtitle", tint = if (mode == CaptionMode.OFF) Color.White.copy(0.6f) else Neon.Cyan,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(mode.label.uppercase(), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** Video di dalam layar Now Playing (16:9) dengan tombol layar penuh & subtitle. */
+@Composable
+fun InlineVideo(
+    vm: PlayerViewModel, ui: PlayerUi, lyrics: LyricsState, player: Player?,
+    onFullscreen: () -> Unit, modifier: Modifier = Modifier,
+) {
     Box(
         modifier
             .clip(HudShape(18.dp))
             .background(Color.Black)
     ) {
         VideoSurface(player, Modifier.fillMaxSize())
-        if (buffering) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Neon.Cyan)
+        if (ui.buffering) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Neon.Cyan)
+        CaptionOverlay(vm, ui, lyrics, big = false, modifier = Modifier.align(Alignment.BottomCenter))
+        CaptionButton(vm, Modifier.align(Alignment.TopEnd).padding(8.dp))
         IconButton(
             onClick = onFullscreen,
             modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
@@ -110,7 +172,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 
 /** Mode layar penuh: landscape, bar sistem disembunyikan, ketuk untuk memunculkan kontrol. */
 @Composable
-fun FullscreenVideo(vm: PlayerViewModel, ui: PlayerUi, player: Player?, onExit: () -> Unit) {
+fun FullscreenVideo(vm: PlayerViewModel, ui: PlayerUi, player: Player?, lyrics: LyricsState, onExit: () -> Unit) {
     val activity = LocalContext.current.findActivity()
     DisposableEffect(activity) {
         val window = activity?.window
@@ -138,6 +200,7 @@ fun FullscreenVideo(vm: PlayerViewModel, ui: PlayerUi, player: Player?, onExit: 
     ) {
         VideoSurface(player, Modifier.fillMaxSize())
         if (ui.buffering) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Neon.Cyan)
+        CaptionOverlay(vm, ui, lyrics, big = true, modifier = Modifier.align(Alignment.BottomCenter))
 
         AnimatedVisibility(controls, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
@@ -177,6 +240,8 @@ fun FullscreenVideo(vm: PlayerViewModel, ui: PlayerUi, player: Player?, onExit: 
                             color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                         )
                         Spacer(Modifier.weight(1f))
+                        CaptionButton(vm)
+                        Spacer(Modifier.width(8.dp))
                         IconButton(onClick = onExit) { Icon(Icons.Rounded.FullscreenExit, "Keluar layar penuh", tint = Color.White) }
                     }
                 }

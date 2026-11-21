@@ -37,8 +37,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_SEND) {
-            intent.getStringExtra(Intent.EXTRA_TEXT)?.let(vm::handleSharedText)
+        when (intent?.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)?.let(vm::handleSharedText)
+            // Dipakai uji otomatis di emulator (adb shell am start -a com.permata.neonamp.TEST …)
+            "com.permata.neonamp.TEST" -> intent.getStringExtra("url")?.let { url ->
+                vm.testAction(url, intent.getBooleanExtra("video", false), intent.getStringExtra("download"))
+            }
         }
     }
 }

@@ -13,6 +13,9 @@ import com.permata.neonamp.NeonAmpApp
 import com.permata.neonamp.data.Kind
 import com.permata.neonamp.data.AudioQuality
 import com.permata.neonamp.data.Prefs
+import com.permata.neonamp.data.CaptionMode
+import com.permata.neonamp.data.Cue
+import com.permata.neonamp.data.Subtitles
 import com.permata.neonamp.data.LocalMusic
 import com.permata.neonamp.data.Lyrics
 import com.permata.neonamp.data.LyricsResult
@@ -47,6 +50,8 @@ sealed interface LyricsState {
     data object NotFound : LyricsState
     data class Ready(val result: LyricsResult) : LyricsState
 }
+
+private const val TAG = "NeonAmpTest"
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val neon = app as NeonAmpApp
@@ -90,18 +95,66 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             _player.value = c
             c.addListener(object : Player.Listener {
                 override fun onEvents(player: Player, events: Player.Events) = sync()
-                override fun onPlayerError(error: PlaybackException) {
-                    _message.value = "Gagal memutar: ${error.cause?.message ?: error.errorCodeName}"
-                }
+                override fun onPlayerError(error: PlaybackException) = recover(error)
             })
             sync()
+            var tick = 0
             while (true) {
                 controller?.let { p ->
                     _ui.update { it.copy(positionMs = p.currentPosition, durationMs = duration(p)) }
+                    if (++tick % 20 == 0 && p.isPlaying) {
+                        android.util.Log.i(TAG, "playing pos=${p.currentPosition} dur=${p.duration} video=${p.videoSize.width}x${p.videoSize.height} id=${p.currentMediaItem?.mediaId}")
+                    }
                 }
                 delay(250)
             }
         }
+    }
+
+    // ---------- Pemulihan otomatis saat gagal putar ----------
+    private val attempts = HashMap<String, Int>()
+
+    /**
+     * 1) Link YouTube kedaluwarsa/ditolak → ambil link baru & lanjutkan dari posisi yang sama.
+     * 2) Video tetap gagal (mis. format tidak didukung HP) → putar audionya saja.
+     * 3) Masih gagal → lewati ke lagu berikutnya.
+     */
+    private fun recover(error: PlaybackException) {
+        val c = controller ?: return
+        val item = c.currentMediaItem ?: return
+        val t = Track.fromMediaItem(item)
+        val key = item.mediaId
+        val n = attempts[key] ?: 0
+        attempts[key] = n + 1
+        android.util.Log.w(TAG, "error ${error.errorCodeName} on $key attempt=$n: ${error.cause?.message}")
+        val pos = c.currentPosition
+        val idx = c.currentMediaItemIndex
+        when {
+            t != null && t.source == com.permata.neonamp.data.Source.YOUTUBE && n == 0 && t.localPath == null -> {
+                t.videoId?.let(YouTubeRepo::invalidate)
+                _message.value = "Menyambung ulang…"
+                c.seekTo(idx, pos); c.prepare(); c.play()
+            }
+            t != null && t.wantVideo && n <= 1 -> {
+                _message.value = "Video ini tidak bisa diputar di HP ini — memutar audionya saja"
+                c.replaceMediaItem(idx, resolveForPlay(t, false).toMediaItem())
+                c.seekTo(idx, pos); c.prepare(); c.play()
+            }
+            c.hasNextMediaItem() -> {
+                _message.value = "Gagal memutar \"${t?.title ?: "lagu"}\", lanjut ke berikutnya"
+                c.seekToNextMediaItem(); c.prepare(); c.play()
+            }
+            else -> _message.value = "Gagal memutar: ${friendlyError(error)}"
+        }
+    }
+
+    private fun friendlyError(e: PlaybackException): String = when (e.errorCode) {
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "koneksi internet bermasalah"
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "ditolak server YouTube, coba lagi nanti"
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "format tidak didukung HP ini"
+        else -> e.cause?.message ?: e.errorCodeName
     }
 
     private fun duration(p: Player): Long {
@@ -126,6 +179,79 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             queueIndex = p.currentMediaItemIndex,
         )
         if (track?.id != lyricsFor) loadLyrics(track)
+        val subKey = track?.takeIf { it.wantVideo }?.id
+        if (subKey != subsFor) loadSubs(track?.takeIf { it.wantVideo })
+        val st = p.playbackState
+        if (st != lastState) {
+            lastState = st
+            android.util.Log.i(TAG, "state=$st playing=${p.isPlaying} id=${p.currentMediaItem?.mediaId}")
+        }
+    }
+
+    private var lastState = -1
+
+    // ---------- Subtitle / lirik di video ----------
+    private val _cues = MutableStateFlow<List<Cue>>(emptyList())
+    val cues: StateFlow<List<Cue>> = _cues.asStateFlow()
+    private var subsFor: String? = null
+    private var subsJob: Job? = null
+    val captionMode = Prefs.caption
+
+    private fun loadSubs(track: Track?) {
+        subsFor = track?.id
+        subsJob?.cancel()
+        _cues.value = emptyList()
+        if (track == null) return
+        subsJob = viewModelScope.launch {
+            _cues.value = runCatching { Subtitles.load(track, getApplication<Application>().cacheDir) }.getOrDefault(emptyList())
+            android.util.Log.i(TAG, "subtitles ${_cues.value.size} cues for ${track.id}")
+        }
+    }
+
+    /** Tombol CC: Subtitle → Lirik → Mati → Subtitle … */
+    fun cycleCaption() {
+        val next = when (Prefs.caption.value) {
+            CaptionMode.SUBS -> CaptionMode.LYRICS
+            CaptionMode.LYRICS -> CaptionMode.OFF
+            CaptionMode.OFF -> CaptionMode.SUBS
+        }
+        Prefs.setCaption(next)
+        _message.value = when (next) {
+            CaptionMode.SUBS -> if (_cues.value.isEmpty()) "Subtitle: video ini tidak punya subtitle" else "Subtitle: aktif"
+            CaptionMode.LYRICS -> "Subtitle: lirik lagu"
+            CaptionMode.OFF -> "Subtitle: mati"
+        }
+    }
+
+    // ---------- Stabilizer ----------
+    val volumeStabilizer = Prefs.volumeStabilizer
+    val stability = Prefs.stability
+
+    // ---------- Pilih ukuran unduhan ----------
+    private val _picker = MutableStateFlow<Pair<Track, Kind>?>(null)
+    val picker: StateFlow<Pair<Track, Kind>?> = _picker.asStateFlow()
+    fun openDownloadPicker(track: Track, kind: Kind) { _picker.value = track to kind }
+    fun closeDownloadPicker() { _picker.value = null }
+    suspend fun downloadOptions(track: Track): YouTubeRepo.DownloadOptions? =
+        track.videoId?.let { id -> runCatching { YouTubeRepo.downloadOptions(id) }.getOrNull() }
+
+    private val _openPlayer = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val openPlayer: kotlinx.coroutines.flow.SharedFlow<Unit> = _openPlayer
+
+    // ---------- Hook uji otomatis (dipakai workflow emulator) ----------
+    fun testAction(url: String, video: Boolean, download: String?) {
+        viewModelScope.launch {
+            runCatching { YouTubeRepo.fromUrl(url) }
+                .onSuccess { t ->
+                    android.util.Log.i(TAG, "test resolved ${t.id} '${t.title}'")
+                    when (download) {
+                        "audio" -> download(t, Kind.AUDIO)
+                        "video" -> download(t, Kind.VIDEO)
+                        else -> { playList(listOf(t), 0, video); _openPlayer.tryEmit(Unit) }
+                    }
+                }
+                .onFailure { android.util.Log.e(TAG, "test failed: $it") }
+        }
     }
 
     private fun loadLyrics(track: Track?) {
@@ -323,8 +449,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         search()
     }
 
-    fun download(track: Track, kind: Kind) {
-        neon.downloads.download(track, kind)
+    fun download(track: Track, kind: Kind, videoItag: Int? = null, audioItag: Int? = null) {
+        _picker.value = null
+        neon.downloads.download(track, kind, videoItag, audioItag)
         _message.value = (if (kind == Kind.VIDEO) "Mengunduh video" else "Mengunduh audio") + " \"${track.title}\""
     }
 

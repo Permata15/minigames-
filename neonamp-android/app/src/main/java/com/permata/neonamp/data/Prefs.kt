@@ -12,7 +12,13 @@ enum class AudioQuality(val label: String, val detail: String) {
     SAVER("Hemat kuota", "±50 kbps, cocok untuk data seluler"),
 }
 
-/** Pengaturan kualitas stream & unduhan. */
+enum class CaptionMode(val label: String) { OFF("Mati"), LYRICS("Lirik"), SUBS("Subtitle") }
+enum class StreamStability(val label: String, val detail: String) {
+    NORMAL("Normal", "Mulai cepat, hemat memori"),
+    STABLE("Stabil", "Buffer besar (±2 menit), anti putus-putus di sinyal lemah"),
+}
+
+/** Pengaturan kualitas, stabilizer, dan subtitle. */
 object Prefs {
     private lateinit var sp: SharedPreferences
 
@@ -25,11 +31,24 @@ object Prefs {
 
     val videoOptions = listOf(1080, 720, 480, 360)
 
+    private val _caption = MutableStateFlow(CaptionMode.SUBS)
+    val caption: StateFlow<CaptionMode> = _caption.asStateFlow()
+
+    /** Penstabil volume: meratakan keras-pelan antar lagu/video. */
+    private val _volumeStabilizer = MutableStateFlow(false)
+    val volumeStabilizer: StateFlow<Boolean> = _volumeStabilizer.asStateFlow()
+
+    private val _stability = MutableStateFlow(StreamStability.STABLE)
+    val stability: StateFlow<StreamStability> = _stability.asStateFlow()
+
     fun init(context: Context) {
         sp = context.getSharedPreferences("neonamp_prefs", Context.MODE_PRIVATE)
         _audio.value = runCatching { AudioQuality.valueOf(sp.getString("audio_q", null) ?: "BEST") }
             .getOrDefault(AudioQuality.BEST)
         _videoMax.value = sp.getInt("video_max", 1080)
+        _caption.value = runCatching { CaptionMode.valueOf(sp.getString("caption", null) ?: "SUBS") }.getOrDefault(CaptionMode.SUBS)
+        _volumeStabilizer.value = sp.getBoolean("vol_stab", false)
+        _stability.value = runCatching { StreamStability.valueOf(sp.getString("stability", null) ?: "STABLE") }.getOrDefault(StreamStability.STABLE)
     }
 
     fun setAudio(q: AudioQuality) {
@@ -42,4 +61,8 @@ object Prefs {
         _videoMax.value = h
         sp.edit().putInt("video_max", h).apply()
     }
+
+    fun setCaption(m: CaptionMode) { _caption.value = m; sp.edit().putString("caption", m.name).apply() }
+    fun setVolumeStabilizer(on: Boolean) { _volumeStabilizer.value = on; sp.edit().putBoolean("vol_stab", on).apply() }
+    fun setStability(s: StreamStability) { _stability.value = s; sp.edit().putString("stability", s.name).apply() }
 }

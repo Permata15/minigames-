@@ -60,7 +60,7 @@ class DownloadManager(
 
     fun activeCount() = _progress.value.count { it.value >= 0f }
 
-    fun download(track: Track, kind: Kind) {
+    fun download(track: Track, kind: Kind, videoItag: Int? = null, audioItag: Int? = null) {
         val videoId = track.videoId ?: return
         val key = key(kind, track.id)
         val lib = library(kind)
@@ -73,25 +73,30 @@ class DownloadManager(
         scope.launch {
             slots.withPermit {
                 runCatching {
-                    val aExt = YouTubeRepo.resolveAudioBlocking(videoId).format?.suffix ?: "m4a"
+                    val aExt = YouTubeRepo.resolveAudioBlocking(videoId, audioItag).format?.suffix ?: "m4a"
                     val audioFile = File(lib.dir, "$videoId.$aExt")
                     var videoFile: File? = null
+                    var subFile: File? = null
 
                     if (kind == Kind.VIDEO) {
-                        val first = YouTubeRepo.resolveVideoBlocking(videoId)
-                        val audioLen = YouTubeRepo.resolveAudioBlocking(videoId).contentLength
+                        val first = YouTubeRepo.resolveVideoBlocking(videoId, itag = videoItag)
+                        val audioLen = YouTubeRepo.resolveAudioBlocking(videoId, audioItag).contentLength
                         val vFile = File(lib.dir, "$videoId.video.${first.format?.suffix ?: "mp4"}")
                         // Bobot progres sesuai ukuran file (video biasanya jauh lebih besar).
                         val vw = if (first.contentLength > 0 && audioLen > 0)
                             first.contentLength.toFloat() / (first.contentLength + audioLen) else 0.85f
                         fetchToFile(vFile, { refresh ->
                             if (refresh) YouTubeRepo.invalidate(videoId)
-                            YouTubeRepo.resolveVideoBlocking(videoId).let { it.url to it.contentLength }
+                            YouTubeRepo.resolveVideoBlocking(videoId, itag = videoItag).let { it.url to it.contentLength }
                         }) { report(it * vw) }
-                        fetchToFile(audioFile, audioSource(videoId)) { report(vw + it * (1 - vw)) }
+                        fetchToFile(audioFile, audioSource(videoId, audioItag)) { report(vw + it * (1 - vw)) }
                         videoFile = vFile
+                        // Subtitle disimpan juga supaya bisa tampil saat offline.
+                        subFile = runCatching {
+                            Subtitles.fetch(videoId)?.let { t -> File(lib.dir, "$videoId.vtt").apply { writeText(t) } }
+                        }.getOrNull()
                     } else {
-                        fetchToFile(audioFile, audioSource(videoId), report)
+                        fetchToFile(audioFile, audioSource(videoId, audioItag), report)
                     }
 
                     // Sampul & lirik juga disimpan supaya lengkap saat offline.
@@ -102,15 +107,18 @@ class DownloadManager(
                         track.copy(
                             localPath = audioFile.absolutePath,
                             videoPath = videoFile?.absolutePath,
+                            subtitlePath = subFile?.absolutePath,
                             wantVideo = kind == Kind.VIDEO,
                             artworkUrl = cover ?: track.artworkUrl,
                         )
                     )
                 }.onSuccess {
+                    android.util.Log.i("NeonAmpTest", "download ok $key")
                     _progress.update { it - key }
                     _titles.update { it - key }
                     _events.tryEmit("✓ Tersimpan offline: ${track.title}")
                 }.onFailure { e ->
+                    android.util.Log.e("NeonAmpTest", "download failed $key: $e")
                     _progress.update { it + (key to -1f) }
                     _events.tryEmit("Gagal unduh \"${track.title}\": ${friendly(e)}")
                 }
@@ -118,9 +126,9 @@ class DownloadManager(
         }
     }
 
-    private fun audioSource(videoId: String): (Boolean) -> Pair<String, Long> = { refresh ->
+    private fun audioSource(videoId: String, itag: Int?): (Boolean) -> Pair<String, Long> = { refresh ->
         if (refresh) YouTubeRepo.invalidate(videoId)
-        YouTubeRepo.resolveAudioBlocking(videoId).let { it.url to it.contentLength }
+        YouTubeRepo.resolveAudioBlocking(videoId, itag).let { it.url to it.contentLength }
     }
 
     fun clearError(track: Track, kind: Kind) {

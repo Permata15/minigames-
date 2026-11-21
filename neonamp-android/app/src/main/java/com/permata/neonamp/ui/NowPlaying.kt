@@ -89,7 +89,7 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
     var fullscreen by rememberSaveable { mutableStateOf(false) }
 
     if (fullscreen && track.wantVideo) {
-        FullscreenVideo(vm, ui, player, onExit = { fullscreen = false })
+        FullscreenVideo(vm, ui, player, lyrics, onExit = { fullscreen = false })
         return
     }
 
@@ -129,7 +129,7 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     progress = downloads[DownloadManager.key(kind, track.id)],
                     offline = lib.any { it.id == track.id },
                     icon = if (kind == Kind.VIDEO) Icons.Rounded.VideoLibrary else Icons.Rounded.Download,
-                    onDownload = { vm.download(track, kind) },
+                    onDownload = { vm.openDownloadPicker(track, kind) },
                     onRetry = { vm.retryDownload(track, kind) },
                 )
             } else Spacer(Modifier.size(48.dp))
@@ -145,7 +145,7 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
             when (mode) {
                 0 -> if (track.wantVideo) {
                     InlineVideo(
-                        player, ui.buffering, onFullscreen = { fullscreen = true },
+                        vm, ui, lyrics, player, onFullscreen = { fullscreen = true },
                         modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
                     )
                 } else {

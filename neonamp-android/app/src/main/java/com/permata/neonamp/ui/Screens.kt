@@ -120,6 +120,7 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
         }
     }
     BackHandler(showPlayer) { showPlayer = false }
+    LaunchedEffect(Unit) { vm.openPlayer.collect { showPlayer = true } }
 
     Box(Modifier.fillMaxSize().background(Neon.Bg).heroBackdrop()) {
         Scaffold(
@@ -144,6 +145,9 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
                 }
             }
         }
+
+        val picker by vm.picker.collectAsStateWithLifecycle()
+        picker?.let { (t, k) -> DownloadPickerDialog(vm, t, k) }
 
         AnimatedVisibility(
             visible = showPlayer && ui.track != null,
@@ -452,24 +456,24 @@ internal fun TrackMenu(
                 when {
                     audioSaved -> "Audio sudah offline"
                     audioState != null && audioState < 0 -> "Ulangi unduh audio"
-                    else -> "Unduh audio (ringan)"
+                    else -> "Unduh audio… (pilih kualitas)"
                 },
                 enabled = !audioSaved && (audioState == null || audioState < 0),
             ) {
                 open = false
-                if (audioState != null) vm.retryDownload(track, Kind.AUDIO) else vm.download(track, Kind.AUDIO)
+                if (audioState != null) vm.retryDownload(track, Kind.AUDIO) else vm.openDownloadPicker(track, Kind.AUDIO)
             }
             MenuRow(
                 Icons.Rounded.VideoLibrary,
                 when {
                     videoSaved -> "Video sudah offline"
                     videoState != null && videoState < 0 -> "Ulangi unduh video"
-                    else -> "Unduh video 720p"
+                    else -> "Unduh video… (pilih ukuran)"
                 },
                 enabled = !videoSaved && (videoState == null || videoState < 0),
             ) {
                 open = false
-                if (videoState != null) vm.retryDownload(track, Kind.VIDEO) else vm.download(track, Kind.VIDEO)
+                if (videoState != null) vm.retryDownload(track, Kind.VIDEO) else vm.openDownloadPicker(track, Kind.VIDEO)
             }
         }
     }
