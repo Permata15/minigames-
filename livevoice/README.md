@@ -15,7 +15,7 @@ Teman ngobrol AI berbasis **suara** + penerjemah dua arah + teleprompter, untuk 
 
 ## Cara dapat APK
 Setiap push ke folder `livevoice/` menjalankan GitHub Actions **Build LiveVoice APK**:
-- Unduh dari **Releases → `livevoice-latest`** → `LiveVoice-AI.apk`, atau dari tab **Actions** (artifact).
+- Unduh dari **Releases → `livevoice-v2.0.N`** → file `.apk`, atau dari tab **Actions** (artifact).
 - Di HP: buka file APK → izinkan *instal dari sumber tidak dikenal*.
 
 Build manual (butuh Node 22, JDK 21, Android SDK):
