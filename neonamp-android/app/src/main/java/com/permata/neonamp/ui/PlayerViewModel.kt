@@ -103,7 +103,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 controller?.let { p ->
                     _ui.update { it.copy(positionMs = p.currentPosition, durationMs = duration(p)) }
                     if (++tick % 20 == 0 && p.isPlaying) {
-                        android.util.Log.i(TAG, "playing pos=${p.currentPosition} dur=${p.duration} video=${p.videoSize.width}x${p.videoSize.height} id=${p.currentMediaItem?.mediaId}")
+                        android.util.Log.i(TAG, "playing pos=${p.currentPosition} dur=${p.duration} video=${p.videoSize.width}x${p.videoSize.height} id=${p.currentMediaItem?.mediaId} cap=${Subtitles.at(_cues.value, p.currentPosition)?.replace('\n', ' ') ?: "-"}")
                     }
                 }
                 delay(250)
