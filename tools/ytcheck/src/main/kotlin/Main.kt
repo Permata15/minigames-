@@ -51,7 +51,7 @@ fun main(args: Array<String>) {
         info.audioStreams.forEach { println("  A itag=${it.itag} ${it.format} ${it.deliveryMethod} br=${it.averageBitrate} len=${it.itagItem?.contentLength}") }
         info.videoOnlyStreams.take(8).forEach { println("  V itag=${it.itag} ${it.format} ${it.codec} ${it.height}p ${it.deliveryMethod} len=${it.itagItem?.contentLength}") }
         val a = info.audioStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }.maxByOrNull { it.averageBitrate } ?: continue
-        val v = info.videoOnlyStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.height <= 720 }.maxByOrNull { it.height }
+        val v = info.videoOnlyStreams.filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.height <= 1080 && it.codec?.startsWith("avc") == true }.maxByOrNull { it.height }
         for ((name, url) in listOfNotNull("audio" to a.content, v?.let { "video" to it.content })) {
             val c = Regex("[?&]c=([^&]+)").find(url)?.groupValues?.get(1)
             println(" $name client=$c host=${url.substringAfter("://").substringBefore("/")}")
@@ -77,6 +77,21 @@ fun main(args: Array<String>) {
             }
             val sec = (System.currentTimeMillis() - t0) / 1000.0
             println("  [FULL visionOS UA] $pos/$total bytes in ${sec}s = ${(pos / 1024 / maxOf(sec, 0.01)).toInt()} KB/s err=$err")
+            // Pola pemutar video (ExoPlayer progresif): satu request "bytes=0-" tanpa batas akhir
+            for ((lbl, rangeHdr) in listOf("OPEN bytes=0-" to "bytes=0-", "OPEN no-range" to null)) {
+                val t1 = System.currentTimeMillis(); var got = 0L; var code = 0; var e2: String? = null
+                try {
+                    val rb = Request.Builder().url(url).header("User-Agent", vua).header("Accept-Encoding", "identity")
+                    if (rangeHdr != null) rb.header("Range", rangeHdr)
+                    client.newCall(rb.build()).execute().use { r ->
+                        code = r.code
+                        val ins = r.body!!.byteStream(); val buf = ByteArray(65536)
+                        while (System.currentTimeMillis() - t1 < 45_000) { val n = ins.read(buf); if (n < 0) break; got += n }
+                    }
+                } catch (ex: Exception) { e2 = "${ex.javaClass.simpleName}: ${ex.message}" }
+                val sec = (System.currentTimeMillis() - t1) / 1000.0
+                println("  [$lbl] HTTP $code got=$got in ${sec}s = ${(got / 1024 / maxOf(sec, 0.01)).toInt()} KB/s err=$e2")
+            }
             probe("GET mid range-header", Request.Builder().url(url).header("User-Agent", UA).header("Range", "bytes=2097152-3145727").build())
         }
     }
