@@ -97,6 +97,7 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Neon.BgTop, Neon.Bg, Neon.Bg)))
+            .heroBackdrop()
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 18.dp)
@@ -105,7 +106,7 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Tutup", tint = Neon.Text) }
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                RobotHead(ui.isPlaying, Modifier.size(26.dp))
+                Mascot(ui.isPlaying, Modifier.size(26.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     if (track.wantVideo) "NOW WATCHING" else "NOW PLAYING",

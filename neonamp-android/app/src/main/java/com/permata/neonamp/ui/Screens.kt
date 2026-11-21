@@ -121,9 +121,9 @@ fun NeonAmpRoot(vm: PlayerViewModel) {
     }
     BackHandler(showPlayer) { showPlayer = false }
 
-    Box(Modifier.fillMaxSize().background(Neon.Bg)) {
+    Box(Modifier.fillMaxSize().background(Neon.Bg).heroBackdrop()) {
         Scaffold(
-            containerColor = Neon.Bg,
+            containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snack) },
             bottomBar = {
                 Column {
@@ -165,7 +165,7 @@ private fun Header(playing: Boolean) {
         Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RobotHead(playing, Modifier.size(46.dp))
+        Mascot(playing, Modifier.size(46.dp))
         Spacer(Modifier.width(10.dp))
         Column {
             Row {
@@ -181,7 +181,8 @@ private fun Header(playing: Boolean) {
                     fontFamily = FontFamily.Monospace, letterSpacing = 3.sp,
                 )
             }
-            StatusDot(if (playing) "UNIT-01 · MEMUTAR" else "UNIT-01 · ONLINE")
+            val unit = if (Neon.palette.hero != null) "HERO MODE" else "UNIT-01"
+            StatusDot(if (playing) "$unit · MEMUTAR" else "$unit · ONLINE")
         }
         Spacer(Modifier.weight(1f))
         IconButton(onClick = { settings = true }) {
@@ -698,7 +699,7 @@ internal fun EmptyState(icon: ImageVector, title: String, subtitle: String) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(contentAlignment = Alignment.BottomEnd) {
-            RobotHead(false, Modifier.size(84.dp))
+            Mascot(false, Modifier.size(84.dp))
             Icon(icon, null, tint = Neon.Magenta, modifier = Modifier.size(22.dp))
         }
         Text(title, color = Neon.Text, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)

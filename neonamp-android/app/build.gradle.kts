@@ -12,8 +12,8 @@ android {
         applicationId = "com.permata.neonamp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     // Kunci tetap (disimpan di repo) supaya setiap APK baru bisa dipasang menimpa versi lama.

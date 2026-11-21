@@ -39,7 +39,8 @@ class PlaybackService : MediaSessionService() {
 
         val http = OkHttpDataSource.Factory(NetDownloader.client)
             .setUserAgent(NetDownloader.USER_AGENT)
-        val upstream = DefaultDataSource.Factory(this, http)
+        // Stream YouTube diambil per potongan (seperti NewPipe) agar video tidak macet.
+        val upstream = DefaultDataSource.Factory(this, ChunkedDataSource.Factory(http))
         val resolving = ResolvingDataSource.Factory(upstream) { spec: DataSpec ->
             val uri = spec.uri
             when (uri.scheme) {

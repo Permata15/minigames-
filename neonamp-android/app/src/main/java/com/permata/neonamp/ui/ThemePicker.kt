@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Pilihan 5 mode tampilan. Tema langsung berubah saat diketuk dan diingat. */
+/** Pilihan mode tampilan (superhero, robot & neon). Tema langsung berubah saat diketuk dan diingat. */
 @Composable
 fun ThemePicker(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -43,8 +46,10 @@ fun ThemePicker(onDismiss: () -> Unit) {
             Text("Mode Tampilan", color = Neon.Text, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Palettes.forEach { p ->
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Palettes.forEachIndexed { i, p ->
+                    if (i == 0 && p.hero != null) HudLabel("◆ SUPERHERO", Neon.Cyan)
+                    if (p.hero == null && (i == 0 || Palettes[i - 1].hero != null)) HudLabel("◆ ROBOT & NEON", Neon.Cyan)
                     val selected = p.key == Neon.palette.key
                     Row(
                         Modifier
@@ -60,8 +65,12 @@ fun ThemePicker(onDismiss: () -> Unit) {
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Mini pratinjau: bar spektrum dengan warna tema
-                        Row(
+                        // Mini pratinjau: lambang pahlawan atau bar spektrum dengan warna tema
+                        if (p.hero != null) {
+                            Box(
+                                Modifier.size(44.dp).clip(HudShape(6.dp)).background(p.lcd).padding(3.dp)
+                            ) { HeroEmblem(p.hero, selected, Modifier.fillMaxSize(), palette = p) }
+                        } else Row(
                             Modifier.size(width = 44.dp, height = 30.dp)
                                 .clip(HudShape(6.dp)).background(p.lcd).padding(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(2.dp),
