@@ -372,7 +372,9 @@ private fun SearchTab(vm: PlayerViewModel, ui: PlayerUi) {
         Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             HudLabel("SYS://YOUTUBE", Neon.Cyan.copy(alpha = 0.7f))
             Spacer(Modifier.weight(1f))
-            HudLabel("AUDIO ${audioQ.label.uppercase()} · VIDEO ≤${videoMax}p", Neon.Lime.copy(alpha = 0.8f))
+            HudLabel(
+                "${if (audioQ.name == "SAVER") "HEMAT" else "HQ"} · ≤${videoMax}p", Neon.Lime.copy(alpha = 0.8f),
+            )
         }
 
         if (searching) {

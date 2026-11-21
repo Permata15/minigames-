@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -141,12 +142,12 @@ fun NowPlayingScreen(vm: PlayerViewModel, onClose: () -> Unit) {
         ModeSwitch(listOf(if (track.wantVideo) "VIDEO" else "VISUAL", "LIRIK", "ANTREAN"), mode) { mode = it }
         Spacer(Modifier.height(10.dp))
 
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(Modifier.weight(1f).fillMaxWidth().clipToBounds(), contentAlignment = Alignment.Center) {
             when (mode) {
                 0 -> if (track.wantVideo) {
                     InlineVideo(
                         vm, ui, lyrics, player, onFullscreen = { fullscreen = true },
-                        modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                        modifier = Modifier.aspectRatio(16f / 9f), // selalu muat di ruang yang ada
                     )
                 } else {
                     val scale by animateFloatAsState(if (ui.isPlaying) 1f else 0.92f, label = "art")
@@ -230,8 +231,11 @@ private fun LcdPanel(ui: PlayerUi) {
             color = Neon.Text, fontFamily = FontFamily.Monospace, fontSize = 14.sp, maxLines = 1,
             modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
         )
-        Spacer(Modifier.height(10.dp))
-        SpectrumBars(ui.isPlaying, Modifier.fillMaxWidth().height(56.dp))
+        if (!t.wantVideo) {
+            // Mode video: panel dibuat ringkas supaya video dapat ruang lebih besar
+            Spacer(Modifier.height(10.dp))
+            SpectrumBars(ui.isPlaying, Modifier.fillMaxWidth().height(56.dp))
+        }
     }
 }
 
