@@ -179,10 +179,11 @@
             <button class="pill" id="set-key-show">Lihat</button>
           </div>
           <label>Model</label>
-          <input id="set-model" list="model-list" placeholder="gemini-flash-latest">
+          <input id="set-model" list="model-list" placeholder="gemini-2.5-flash">
           <datalist id="model-list">
-            <option value="gemini-flash-latest"><option value="gemini-flash-lite-latest"><option value="gemini-2.5-flash"><option value="gemini-2.5-flash-lite"><option value="gemini-2.5-pro">
+            <option value="gemini-2.5-flash"><option value="gemini-2.5-flash-lite"><option value="gemini-2.0-flash"><option value="gemini-flash-latest"><option value="gemini-flash-lite-latest">
           </datalist>
+          <p class="muted small" style="margin-top:6px">Kalau kuota satu model habis, aplikasi otomatis pindah ke model lain yang masih ada kuota gratisnya.</p>
           <button class="pill primary full" id="set-test">Tes koneksi</button>
           <div class="muted small" id="set-test-result"></div>
         </div>
@@ -194,7 +195,7 @@
             <label><input type="radio" name="engine" value="device"> <b>Pengenal suara HP</b> — teks muncul real-time (bahasa mengikuti pilihan / terakhir terdeteksi)</label>
           </div>
           <label class="switch"><input type="checkbox" id="set-handsfree"><span>Hands-free: otomatis mendengar lagi setelah AI selesai bicara</span></label>
-          <label class="switch"><input type="checkbox" id="set-search"><span>Cari info terkini di Google (lebih akurat untuk berita/fakta)</span></label>
+          <label class="switch"><input type="checkbox" id="set-search"><span>Cari info terkini di Google (lebih akurat untuk berita, tapi kuota gratisnya kecil)</span></label>
           <label>Sensitivitas jeda bicara: <b id="set-silence-val"></b></label>
           <input type="range" id="set-silence" min="500" max="2500" step="100">
         </div>

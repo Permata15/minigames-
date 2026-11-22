@@ -37,11 +37,18 @@ async function copyText(text) {
 
 /* ============================== Setelan ============================== */
 const DEFAULTS = {
-  apiKey: '', model: 'gemini-flash-latest', engine: 'ai', handsfree: true, search: true,
+  v: 3, apiKey: '', model: 'gemini-2.5-flash', engine: 'ai', handsfree: true, search: false,
   silenceMs: 1000, name: 'Nara', style: 'friend', rate: 1.05, pitch: 1.0, ttsOn: true, talkLang: 'auto',
   trA: 'id', trB: 'en', prLang: 'id', prFont: 28,
 };
-const S = Object.assign({}, DEFAULTS, store('settings') || {});
+const SAVED = store('settings') || {};
+const S = Object.assign({}, DEFAULTS, SAVED);
+if ((SAVED.v || 0) < 3) {
+  // migrasi: model & Google Search lama sering kena kuota 0 di akun gratis
+  if (!S.model || /latest/.test(S.model)) S.model = DEFAULTS.model;
+  S.search = false; S.v = 3;
+  try { localStorage.setItem('lv2.settings', JSON.stringify(S)); } catch {}
+}
 const saveSettings = () => store('settings', S);
 
 /* ============================== Bahasa ============================== */
@@ -400,13 +407,74 @@ const Gemini = {
    * Streaming jawaban. onText(delta) dipanggil tiap potongan teks.
    * Kembali { text, sources[] }.
    */
-  async stream({ contents, system, onText, signal, useSearch = S.search, temperature = 0.8, maxTokens = 1024 }) {
+  // model cadangan bila kuota model pilihan habis (urut dari yang kuota gratisnya besar)
+  FALLBACKS: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-flash-lite-latest'],
+  working: store('workingModel') || null,
+  exhausted: {}, // model → waktu kuota boleh dicoba lagi
+
+  models() {
+    const list = [this.working, (S.model || DEFAULTS.model).trim(), ...this.FALLBACKS].filter(Boolean);
+    const now = Date.now();
+    return [...new Set(list)].filter((m) => !(this.exhausted[m] > now));
+  },
+
+  async stream(opts) {
     if (!this.hasKey()) throw new Error('NO_KEY');
-    const model = (S.model || DEFAULTS.model).trim();
+    const models = this.models();
+    if (!models.length) { this.exhausted = {}; models.push((S.model || DEFAULTS.model).trim()); }
+    let lastErr = null;
+    for (const model of models) {
+      try {
+        const r = await this._stream(model, opts);
+        if (this.working !== model) {
+          this.working = model; store('workingModel', model);
+          if (model !== S.model) toast(`Memakai model ${model}`, 2500);
+        }
+        return r;
+      } catch (e) {
+        if (e.name === 'AbortError' || e.started) throw e;
+        lastErr = e;
+        if (e.status === 429) {
+          // kena kuota: tunggu sebentar bila hanya batas per menit, kalau tidak coba model lain
+          const wait = e.retryMs || 0;
+          if (!e.zero && wait && wait <= 8000) {
+            toast(`Batas per menit tercapai, mencoba lagi dalam ${Math.ceil(wait / 1000)} detik…`, wait);
+            await sleep(wait);
+            try { return await this._stream(model, opts); } catch (e2) { if (e2.name === 'AbortError' || e2.started) throw e2; lastErr = e2; }
+          }
+          this.exhausted[model] = Date.now() + (e.zero ? 6 * 3600e3 : Math.max(wait, 60e3));
+          if (this.working === model) { this.working = null; store('workingModel', null); }
+          continue;
+        }
+        if (e.status === 404 || (e.status === 400 && /model/i.test(e.message) && !/api key/i.test(e.message))) {
+          this.exhausted[model] = Date.now() + 24 * 3600e3;
+          continue;
+        }
+        throw this._friendly(e);
+      }
+    }
+    throw this._friendly(lastErr);
+  },
+
+  _friendly(e) {
+    if (!e) return new Error('Gagal menghubungi AI');
+    if (e.status === 429) {
+      const err = new Error('Kuota gratis API key ini sedang habis untuk semua model. ' +
+        (e.zero ? 'Akun/negara ini mungkin belum dapat kuota gratis — cek aistudio.google.com (Usage & Billing), atau buat API key baru di project baru. '
+          : 'Tunggu ±1 menit (batas per menit) atau besok (batas harian). ') +
+        `Detail Google: ${e.message.slice(0, 160)}`);
+      return err;
+    }
+    if (e.status === 400 && /api key/i.test(e.message)) return new Error('API key tidak valid. Salin ulang dari aistudio.google.com/apikey.');
+    if (e.status === 403) return new Error('API key ditolak (403). Pastikan "Generative Language API" aktif untuk key ini. Detail: ' + e.message.slice(0, 120));
+    return e;
+  },
+
+  async _stream(model, { contents, system, onText, signal, useSearch = S.search, temperature = 0.8, maxTokens = 1024 }) {
     const body = { contents, generationConfig: { temperature, maxOutputTokens: maxTokens } };
     if (system) body.systemInstruction = { parts: [{ text: system }] };
     if (useSearch && !this.noTools) body.tools = [{ google_search: {} }];
-    if (!this.noThinking && !/pro/i.test(model)) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    if (!this.noThinking && /2\.5/.test(model) && !/pro/i.test(model)) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
     const res = await fetch(url, {
@@ -414,24 +482,29 @@ const Gemini = {
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': S.apiKey.trim() },
     });
     if (!res.ok) {
-      let msg = `HTTP ${res.status}`;
-      try { const j = await res.json(); msg = (j.error && j.error.message) || msg; } catch {}
-      // fallback otomatis untuk model yang tidak mendukung opsi tertentu
+      let msg = `HTTP ${res.status}`, retryMs = 0, j = null;
+      try { j = await res.json(); msg = (j.error && j.error.message) || msg; } catch {}
+      const details = (j && j.error && j.error.details) || [];
+      const ri = details.find((d) => d.retryDelay);
+      if (ri) retryMs = parseFloat(ri.retryDelay) * 1000;
+      // fallback otomatis untuk opsi yang tidak didukung model
       if (res.status === 400 && body.generationConfig.thinkingConfig && /think/i.test(msg)) {
-        this.noThinking = true; return this.stream(arguments[0]);
+        this.noThinking = true; return this._stream(model, arguments[1]);
       }
-      if (res.status === 400 && body.tools && /tool|search|ground/i.test(msg)) {
-        this.noTools = true; return this.stream(arguments[0]);
+      if (body.tools && (res.status === 429 || (res.status === 400 && /tool|search|ground/i.test(msg)))) {
+        // Google Search punya kuota sendiri → coba lagi tanpa pencarian
+        this.noTools = true; return this._stream(model, arguments[1]);
       }
-      if (res.status === 400 && /api key/i.test(msg)) throw new Error('API key tidak valid. Cek di Setelan.');
-      if (res.status === 429) throw new Error('Kuota API habis / terlalu sering. Tunggu sebentar ya.');
-      if (res.status === 404) throw new Error(`Model "${model}" tidak ditemukan. Ganti model di Setelan.`);
-      throw new Error(msg);
+      const err = new Error(msg);
+      err.status = res.status; err.retryMs = retryMs;
+      err.zero = /limit:\s*0\b/.test(msg);
+      throw err;
     }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
-    let buf = '', full = '';
+    let buf = '', full = '', started = false;
     const sources = new Map();
+    try {
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -444,11 +517,12 @@ const Gemini = {
         const c = j.candidates && j.candidates[0];
         if (!c) { if (j.promptFeedback && j.promptFeedback.blockReason) throw new Error('Pesan diblokir oleh filter keamanan.'); continue; }
         const parts = (c.content && c.content.parts) || [];
-        for (const p of parts) if (p.text && !p.thought) { full += p.text; onText && onText(p.text); }
+        for (const p of parts) if (p.text && !p.thought) { full += p.text; started = true; onText && onText(p.text); }
         const g = c.groundingMetadata;
         if (g && g.groundingChunks) g.groundingChunks.forEach((ch) => ch.web && sources.set(ch.web.uri, ch.web.title || ch.web.uri));
       }
     }
+    } catch (e) { e.started = started; throw e; }
     return { text: full, sources: [...sources].map(([uri, title]) => ({ uri, title })) };
   },
 
@@ -998,15 +1072,16 @@ function bindSettings() {
   const key = $('#set-key'), model = $('#set-model');
   key.value = S.apiKey; model.value = S.model;
   key.onchange = () => { S.apiKey = key.value.trim(); saveSettings(); };
-  model.onchange = () => { S.model = model.value.trim() || DEFAULTS.model; Gemini.noThinking = Gemini.noTools = false; saveSettings(); };
+  model.onchange = () => { S.model = model.value.trim() || DEFAULTS.model; Gemini.noThinking = Gemini.noTools = false; Gemini.working = null; Gemini.exhausted = {}; store('workingModel', null); saveSettings(); };
   $('#set-key-show').onclick = () => { key.type = key.type === 'password' ? 'text' : 'password'; };
   $('#set-test').onclick = async () => {
-    S.apiKey = key.value.trim(); S.model = model.value.trim() || DEFAULTS.model; saveSettings();
+    S.apiKey = key.value.trim(); S.model = model.value.trim() || DEFAULTS.model; Gemini.noTools = false; saveSettings();
     const out = $('#set-test-result'); out.textContent = 'Menguji…';
     const t0 = performance.now();
     try {
+      Gemini.exhausted = {}; Gemini.working = null; store('workingModel', null);
       const r = await Gemini.once({ contents: [{ role: 'user', parts: [{ text: 'Say "OK" only.' }] }] });
-      out.textContent = `✅ Terhubung (${Math.round(performance.now() - t0)} ms): ${r.slice(0, 40)}`;
+      out.textContent = `✅ Terhubung lewat model ${Gemini.working} (${Math.round(performance.now() - t0)} ms): ${r.slice(0, 40)}`;
     } catch (e) { out.textContent = '❌ ' + (e.message === 'NO_KEY' ? 'API key kosong' : e.message); }
   };
   $$('input[name=engine]').forEach((r) => { r.checked = r.value === S.engine; r.onchange = () => { S.engine = r.value; saveSettings(); talkLangLabel(); }; });
