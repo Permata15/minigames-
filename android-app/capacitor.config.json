@@ -1,0 +1,11 @@
+{
+  "appId": "com.core9.mechachat",
+  "appName": "CORE-9",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0a0d12"
+  },
+  "plugins": {
+    "SystemBars": { "insetsHandling": "native" }
+  }
+}

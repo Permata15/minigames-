@@ -1,0 +1,21 @@
+{
+  "name": "core9-android",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor-community/text-to-speech": "^8.0.2",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "vite": "^6.4.6"
+  }
+}

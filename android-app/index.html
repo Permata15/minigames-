@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0a0d12">
+<title>CORE-9</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Chakra+Petch:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+
+<div class="app" id="app">
+  <!-- PANEL UNIT -->
+  <aside class="unit armor" aria-label="Unit robot">
+    <div class="unit-inner">
+      <div class="unit-tag"><span>UNIT // CORE-9</span><b>● ONLINE</b></div>
+      <div class="bay" id="bay">
+        <svg viewBox="0 0 200 200" role="img" aria-label="Kepala robot CORE-9">
+          <defs>
+            <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5d6b7e"/><stop offset=".45" stop-color="#2f3a49"/><stop offset="1" stop-color="#1a212b"/>
+            </linearGradient>
+            <linearGradient id="steelLight" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#8a98ab"/><stop offset="1" stop-color="#3a4656"/>
+            </linearGradient>
+            <linearGradient id="ember" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffa060"/><stop offset="1" stop-color="#c2410c"/>
+            </linearGradient>
+            <filter id="glow" x="-50%" y="-200%" width="200%" height="500%">
+              <feGaussianBlur stdDeviation="3.5" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <!-- sirip kiri & kanan -->
+          <g class="part" style="--i:0; --dx:-90px; --dy:10px; --r:-50deg">
+            <polygon points="62,58 38,62 26,104 46,136 66,124" fill="url(#steel)" stroke="#0a0d12" stroke-width="2"/>
+            <polygon points="44,74 34,102 46,122" fill="url(#ember)"/>
+          </g>
+          <g class="part" style="--i:0; --dx:90px; --dy:10px; --r:50deg">
+            <polygon points="138,58 162,62 174,104 154,136 134,124" fill="url(#steel)" stroke="#0a0d12" stroke-width="2"/>
+            <polygon points="156,74 166,102 154,122" fill="url(#ember)"/>
+          </g>
+          <!-- helm utama -->
+          <g class="part" style="--i:1; --dy:70px; --r:0deg">
+            <polygon points="66,50 88,36 112,36 134,50 142,108 128,150 72,150 58,108" fill="url(#steel)" stroke="#0a0d12" stroke-width="2"/>
+            <polyline points="66,50 76,70 124,70 134,50" fill="none" stroke="#6b7a8e" stroke-width="1.5"/>
+          </g>
+          <!-- jambul -->
+          <g class="part" style="--i:2; --dy:-80px; --r:180deg">
+            <polygon points="100,12 116,34 110,62 90,62 84,34" fill="url(#steelLight)" stroke="#0a0d12" stroke-width="2"/>
+            <polygon points="100,20 106,34 100,56 94,34" fill="url(#ember)"/>
+          </g>
+          <!-- pelat wajah -->
+          <g class="part" style="--i:3; --dy:60px; --r:-20deg">
+            <polygon points="74,96 126,96 132,112 118,148 82,148 68,112" fill="#161d27" stroke="#0a0d12" stroke-width="2"/>
+            <g class="grill">
+              <line x1="86" y1="118" x2="114" y2="118" style="--g:0"/>
+              <line x1="88" y1="127" x2="112" y2="127" style="--g:1"/>
+              <line x1="90" y1="136" x2="110" y2="136" style="--g:2"/>
+            </g>
+          </g>
+          <!-- pipi -->
+          <g class="part" style="--i:4; --dx:-40px; --r:-90deg">
+            <polygon points="60,100 72,96 70,124 62,118" fill="url(#steelLight)"/>
+          </g>
+          <g class="part" style="--i:4; --dx:40px; --r:90deg">
+            <polygon points="140,100 128,96 130,124 138,118" fill="url(#steelLight)"/>
+          </g>
+          <!-- dagu -->
+          <g class="part" style="--i:5; --dy:50px">
+            <polygon points="84,148 116,148 110,166 90,166" fill="url(#steel)" stroke="#0a0d12" stroke-width="2"/>
+          </g>
+          <!-- visor -->
+          <g class="part" style="--i:5; --dx:0; --dy:0; --r:0deg">
+            <polygon points="70,76 130,76 136,90 64,90" fill="#05080c" stroke="#0a0d12" stroke-width="2"/>
+            <polygon class="visor-glow" points="74,79 126,79 130,87 70,87" fill="#3ad8ff" filter="url(#glow)"/>
+          </g>
+        </svg>
+      </div>
+      <div>
+        <h2 class="unit-name">CORE<span>-9</span></h2>
+        <p class="unit-sub">Unit asisten tempur-pengetahuan. Siap menjawab pertanyaan, menulis, dan membantu coding.</p>
+      </div>
+      <dl class="hud">
+        <div class="hud-row live"><dt>STATUS</dt><dd id="hudStatus">SIAGA</dd></div>
+        <div class="hud-row"><dt>MODE</dt><dd id="hudMode">KILAT</dd></div>
+        <div class="hud-row"><dt>TRANSMISI</dt><dd id="hudCount">0</dd></div>
+      </dl>
+    </div>
+  </aside>
+
+  <!-- KANAL KOMUNIKASI -->
+  <section class="comms armor" aria-label="Percakapan">
+    <div class="armor-shell">
+      <div class="bar">
+        <svg class="emblem" viewBox="0 0 200 200" aria-hidden="true">
+          <polygon points="66,50 88,36 112,36 134,50 142,108 128,150 72,150 58,108" fill="#2f3a49" stroke="#5d6b7e" stroke-width="4"/>
+          <polygon points="100,12 116,34 110,56 90,56 84,34" fill="#ff6a1a"/>
+          <polygon points="70,76 130,76 136,90 64,90" fill="#3ad8ff"/>
+        </svg>
+        <div class="bar-title">
+          <h1>CORE<span>-9</span> // KANAL</h1>
+          <div class="status" id="status"><i></i><span id="statusText">SIAGA</span></div>
+        </div>
+        <button type="button" class="ghost" id="settingsBtn" title="Pengaturan" aria-label="Pengaturan">⚙</button>
+        <button type="button" class="ghost" id="reset" title="Mulai percakapan baru">↻<span class="long"> RESET</span></button>
+      </div>
+
+      <div class="strip">
+        <div class="mode" role="group" aria-label="Mode jawaban">
+          <button type="button" id="modeQuick" aria-pressed="true" title="Langsung menjawab tanpa jeda">⚡ KILAT</button>
+          <button type="button" id="modeSmart" aria-pressed="false" title="Berpikir lebih dalam sebelum menjawab">🧠 CERDAS</button>
+        </div>
+        <span class="langbox"><label for="lang">BAHASA</label>
+        <select class="sel" id="lang">
+          <option value="auto">🌐 Otomatis (ikuti saya)</option>
+          <option value="id">🇮🇩 Indonesia</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="ms">🇲🇾 Melayu</option>
+          <option value="ja">🇯🇵 日本語</option>
+          <option value="ko">🇰🇷 한국어</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="ar">🇸🇦 العربية</option>
+          <option value="hi">🇮🇳 हिन्दी</option>
+          <option value="th">🇹🇭 ไทย</option>
+          <option value="vi">🇻🇳 Tiếng Việt</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="pt">🇧🇷 Português</option>
+          <option value="ru">🇷🇺 Русский</option>
+          <option value="tr">🇹🇷 Türkçe</option>
+        </select></span>
+        <span class="spacer"></span>
+        <div class="mode" role="group" aria-label="Suara robot" id="voiceGroup">
+          <button type="button" id="voiceBtn" aria-pressed="true" title="Robot membacakan jawaban">🔊 SUARA</button>
+          <button type="button" id="handsBtn" aria-pressed="false" title="Setelah robot selesai bicara, mikrofon otomatis mendengar lagi">🔁 OBROLAN</button>
+        </div>
+      </div>
+
+      <div class="log" id="log" aria-live="polite"></div>
+
+      <div class="dock">
+        <form id="form">
+          <button class="mic" id="mic" type="button" title="Ngobrol langsung pakai suara" aria-label="Bicara">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
+            </svg>
+          </button>
+          <textarea id="input" rows="1" placeholder="Ketik pesan…" aria-label="Pesan"></textarea>
+          <button class="fire" id="fire" type="submit">KIRIM</button>
+        </form>
+        <p class="hint" id="hint">🎤 = BICARA · ROBOT OTOMATIS MENJAWAB SAAT ANDA BERHENTI BICARA</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+
+<div class="overlay" id="settings" hidden>
+  <form class="sheet armor" id="settingsForm">
+    <h2>⚙ PENGATURAN CORE-9</h2>
+    <p>CORE-9 memakai <strong>Claude API</strong>. Masukkan API key Anda sekali saja. Key hanya disimpan di HP ini dan langsung dikirim ke server Claude, tidak ke tempat lain.</p>
+    <p class="small">Buat key di <span class="url" id="consoleUrl">console.anthropic.com</span> → API Keys → Create Key, lalu isi saldo di menu Billing.</p>
+    <label for="apiKey">API KEY</label>
+    <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+    <label class="check"><input id="showKey" type="checkbox"> Tampilkan key</label>
+    <p class="err" id="settingsErr" hidden></p>
+    <div class="row">
+      <button type="button" class="ghost" id="settingsCancel">BATAL</button>
+      <button type="submit" class="fire">SIMPAN</button>
+    </div>
+  </form>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

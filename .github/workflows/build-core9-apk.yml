@@ -1,0 +1,62 @@
+name: Build CORE-9 APK
+
+on:
+  push:
+    paths:
+      - "android-app/**"
+      - ".github/workflows/build-core9-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: android-app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install & build web app
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: android-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../../CORE-9.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CORE-9-apk
+          path: CORE-9.apk
+
+      - name: Publish download (GitHub Release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: core9-v${{ github.run_number }}
+          name: CORE-9 Android v${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: CORE-9.apk
+          body: |
+            Aplikasi chatbot robot CORE-9 untuk Android.
+            Unduh **CORE-9.apk** di bawah, buka di HP, lalu izinkan "Instal aplikasi tidak dikenal".
