@@ -30,8 +30,6 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
-
       - name: Install & build web app
         run: |
           npm ci
@@ -57,6 +55,7 @@ jobs:
           name: CORE-9 Android v${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           files: CORE-9.apk
+          prerelease: true
           body: |
             Aplikasi chatbot robot CORE-9 untuk Android.
             Unduh **CORE-9.apk** di bawah, buka di HP, lalu izinkan "Instal aplikasi tidak dikenal".
