@@ -7,6 +7,8 @@ import { TextToSpeech, QueueStrategy } from "@capacitor-community/text-to-speech
 // KILAT: model tercepat, tanpa berpikir dulu → jawaban langsung keluar.
 // CERDAS: model terpintar, berpikir sebelum menjawab.
 const MODELS = { quick: "claude-haiku-5-5", smart: "claude-opus-5-5" };
+// Gemini (gratis): model Flash, dengan cadangan jika nama model tidak tersedia.
+const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest"];
 
 const LANGS = {
   id: ["Bahasa Indonesia", "id-ID"], en: ["English", "en-US"], ms: ["Bahasa Melayu", "ms-MY"],
@@ -35,14 +37,19 @@ const store = {
 };
 
 let turns = [];
-let stream = null;            // stream Claude yang sedang berjalan
+let stream = null;            // permintaan AI yang sedang berjalan: { abort() }
 let tier = store.get("core9-mode", "quick") === "smart" ? "smart" : "quick";
 let lang = store.get("core9-lang", "auto");
 if (lang !== "auto" && !LANGS[lang]) lang = "auto";
 let voiceOn = store.get("core9-voice", "on") === "on";
 let handsFree = store.get("core9-hands", "off") === "on";
-let apiKey = store.get("core9-key", "");
+let apiKey = store.get("core9-key", "");        // Claude
+let gKey = store.get("core9-gkey", "");          // Gemini
+let brain = store.get("core9-brain", "gemini");
 let client = apiKey ? makeClient(apiKey) : null;
+let geminiModel = 0;                             // indeks di GEMINI_MODELS yang terbukti jalan
+let geminiNoThinkCfg = false;
+const hasKey = () => (brain === "gemini" ? !!gKey : !!client);
 
 function makeClient(key) {
   // Aplikasi berjalan di HP Anda sendiri, jadi API key dikirim langsung dari HP ke Claude.
@@ -230,46 +237,132 @@ function trimTurns() {
   while (turns.length && turns[0].role !== "user") turns.shift();
 }
 
-function openStream() {
+// ---------- Claude ----------
+async function runClaude(onDelta, signal) {
   const common = {
     max_tokens: 16000,
     system: systemPrompt(),
     messages: turns.map((t) => ({ role: t.role, content: t.content })),
   };
-  if (tier === "quick") {
-    return client.messages.stream({
-      ...common,
-      model: MODELS.quick,
-      thinking: { type: "disabled" },          // tanpa jeda berpikir
-      output_config: { effort: "low" },
-    });
+  const st = tier === "quick"
+    ? client.messages.stream({
+        ...common,
+        model: MODELS.quick,
+        thinking: { type: "disabled" },          // tanpa jeda berpikir
+        output_config: { effort: "low" },
+      }, { signal })
+    : client.beta.messages.stream({
+        ...common,
+        model: MODELS.smart,
+        output_config: { effort: "medium" },
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",                      // jika ditolak filter keamanan, model cadangan melanjutkan
+      }, { signal });
+  for await (const ev of st) {
+    if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") onDelta(ev.delta.text);
   }
-  return client.beta.messages.stream({
-    ...common,
-    model: MODELS.smart,
-    output_config: { effort: "medium" },
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",                        // jika ditolak filter keamanan, model cadangan melanjutkan
-  });
+  const msg = await st.finalMessage();
+  return msg.stop_reason;
 }
 
-function errorText(e) {
-  if (e instanceof Anthropic.AuthenticationError) return { msg: "API key salah atau tidak aktif. Periksa di ⚙ Pengaturan.", settings: true };
-  if (e instanceof Anthropic.PermissionDeniedError) return { msg: "API key ini tidak punya izin. Periksa akun di console.anthropic.com.", settings: true };
-  if (e instanceof Anthropic.RateLimitError) return { msg: "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi." };
+function claudeError(e) {
+  if (e instanceof Anthropic.AuthenticationError) return { msg: "API key Claude salah atau tidak aktif. Periksa di ⚙ Pengaturan.", settings: true };
+  if (e instanceof Anthropic.PermissionDeniedError) return { msg: "API key Claude ini tidak punya izin. Periksa akun di console.anthropic.com.", settings: true };
+  if (e instanceof Anthropic.RateLimitError) return { msg: "Terlalu banyak permintaan ke Claude. Tunggu sebentar lalu coba lagi." };
   if (e instanceof Anthropic.BadRequestError) {
     const low = /credit|balance|billing/i.test(e.message);
-    return { msg: low ? "Saldo API habis. Isi saldo di console.anthropic.com → Billing." : "Permintaan ditolak: " + e.message };
+    return low
+      ? { msg: "Saldo Claude API Anda $0. Isi saldo di console.anthropic.com → Billing, atau ganti ke Gemini (gratis) di ⚙ Pengaturan.", settings: true }
+      : { msg: "Permintaan ditolak: " + e.message };
   }
   if (e instanceof Anthropic.InternalServerError) return { msg: "Server Claude sedang sibuk. Coba kirim ulang." };
   if (e instanceof Anthropic.APIConnectionError) return { msg: "Tidak ada koneksi internet atau server tidak terjangkau." };
   return { msg: "Terjadi gangguan: " + (e && e.message ? e.message : "tidak diketahui") };
 }
 
+// ---------- Gemini (gratis) ----------
+class GeminiError extends Error {
+  constructor(msg, opts = {}) { super(msg); this.settings = !!opts.settings; this.retry = opts.retry; }
+}
+async function runGemini(onDelta, signal) {
+  const model = GEMINI_MODELS[geminiModel];
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt() }] },
+    contents: turns.map((t) => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.content }] })),
+    generationConfig: { maxOutputTokens: 4096, temperature: 0.8 },
+  };
+  // KILAT = tanpa berpikir dulu (langsung menjawab); CERDAS = model berpikir sebentar.
+  if (tier === "quick" && !geminiNoThinkCfg) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+
+  let res;
+  try {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": gKey },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    if (signal.aborted) throw e;
+    throw new GeminiError("Tidak ada koneksi internet atau server Google tidak terjangkau.");
+  }
+  if (!res.ok) {
+    let msg = "";
+    try { msg = (await res.json()).error?.message || ""; } catch {}
+    if (res.status === 400 && body.generationConfig.thinkingConfig && /think/i.test(msg)) {
+      geminiNoThinkCfg = true;
+      throw new GeminiError("", { retry: true });
+    }
+    if (res.status === 404 && geminiModel < GEMINI_MODELS.length - 1) {
+      geminiModel++;
+      throw new GeminiError("", { retry: true });
+    }
+    if (/api key|API_KEY/i.test(msg) || res.status === 401 || res.status === 403)
+      throw new GeminiError("API key Gemini salah atau belum aktif. Periksa di ⚙ Pengaturan.", { settings: true });
+    if (res.status === 429)
+      throw new GeminiError("Kuota gratis Gemini sedang habis (batas per menit atau per hari). Tunggu sekitar 1 menit lalu coba lagi. Jika masih gagal, kuota hari ini habis dan reset besok.");
+    if (res.status >= 500) throw new GeminiError("Server Gemini sedang sibuk. Coba kirim ulang.");
+    throw new GeminiError("Permintaan ditolak Gemini: " + (msg || "HTTP " + res.status));
+  }
+
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "", finish = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line.startsWith("data:")) continue;
+      let j;
+      try { j = JSON.parse(line.slice(5)); } catch { continue; }
+      if (j.promptFeedback?.blockReason) return "refusal";
+      const c = j.candidates?.[0];
+      if (!c) continue;
+      for (const part of c.content?.parts || []) if (part.text && !part.thought) onDelta(part.text);
+      if (c.finishReason) finish = c.finishReason;
+    }
+  }
+  if (finish === "MAX_TOKENS") return "max_tokens";
+  if (finish === "SAFETY" || finish === "PROHIBITED_CONTENT") return "refusal";
+  return "end_turn";
+}
+
+async function runAI(onDelta, signal) {
+  if (brain === "claude") return runClaude(onDelta, signal);
+  for (let attempt = 0; ; attempt++) {
+    try { return await runGemini(onDelta, signal); }
+    catch (e) { if (e instanceof GeminiError && e.retry && attempt < 4) continue; throw e; }
+  }
+}
+
 async function send(text) {
   text = (text || "").trim();
   if (!text || stream) return;
-  if (!client) { openSettings(); return; }
+  if (!hasKey()) { openSettings(); return; }
   stopSpeaking();
   $("chips")?.remove();
   bubble("you", text);
@@ -289,30 +382,28 @@ async function send(text) {
   setStatus(tier === "quick" ? "MEMPROSES" : "BERPIKIR", "work");
 
   let ok = false;
+  const ctl = new AbortController();
+  stream = { abort: () => ctl.abort() };
   try {
-    stream = openStream();
-    for await (const ev of stream) {
-      if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
-        full += ev.delta.text;
-        body.innerHTML = format(full);
-        log.scrollTop = log.scrollHeight;
-        if (!speaking()) setStatus("MENJAWAB", "work");
-        if (speech === mySpeech) feedSpeech(full, false);
-      }
-    }
-    const msg = await stream.finalMessage();
-    if (msg.stop_reason === "refusal") {
+    const stop = await runAI((delta) => {
+      full += delta;
+      body.innerHTML = format(full);
+      log.scrollTop = log.scrollHeight;
+      if (!speaking()) setStatus("MENJAWAB", "work");
+      if (speech === mySpeech) feedSpeech(full, false);
+    }, ctl.signal);
+    if (stop === "refusal") {
       if (!full) body.parentElement.remove();
       bubble("sys", "Permintaan ini tidak bisa diproses. Coba ubah pertanyaannya.");
-    } else if (msg.stop_reason === "max_tokens") {
+    } else if (stop === "max_tokens") {
       bubble("sys", "Jawaban terpotong karena terlalu panjang. Minta lanjutannya jika perlu.");
     }
     ok = true;
   } catch (e) {
-    const aborted = e instanceof Anthropic.APIUserAbortError || (stream && stream.aborted);
+    const aborted = ctl.signal.aborted || e instanceof Anthropic.APIUserAbortError;
     if (!aborted) {
       stopSpeaking();
-      const { msg, settings } = errorText(e);
+      const { msg, settings } = e instanceof GeminiError ? { msg: e.message, settings: e.settings } : claudeError(e);
       bubble("sys", msg);
       setStatus("GANGGUAN", "err");
       if (settings) openSettings(msg);
@@ -408,25 +499,45 @@ function stopListening(cancel) {
 }
 
 /* ================= pengaturan ================= */
+const KEY_HELP = {
+  gemini: 'Gratis: buka <span class="url">aistudio.google.com/apikey</span> → login akun Google → <b>Create API key</b> → salin, lalu tempel di bawah. Tidak perlu kartu kredit.',
+  claude: 'Berbayar: buat key di <span class="url">console.anthropic.com</span> → API Keys, dan isi saldo di menu Billing (tanpa saldo, Claude tidak bisa menjawab).',
+};
+let formBrain = brain;
+function showBrain(b) {
+  formBrain = b;
+  $("brainGemini").checked = b === "gemini";
+  $("brainClaude").checked = b === "claude";
+  $("keyHelp").innerHTML = KEY_HELP[b];
+  $("apiKey").value = b === "gemini" ? gKey : apiKey;
+  $("apiKey").placeholder = b === "gemini" ? "AIza..." : "sk-ant-...";
+}
+function applyBrainLabel() { $("hudBrain").textContent = brain === "gemini" ? "GEMINI" : "CLAUDE"; }
 function openSettings(err) {
-  $("apiKey").value = apiKey;
+  showBrain(brain);
   $("settingsErr").hidden = !err;
   $("settingsErr").textContent = err || "";
-  $("settingsCancel").hidden = !apiKey;
+  $("settingsCancel").hidden = !hasKey();
   $("settings").hidden = false;
-  setTimeout(() => $("apiKey").focus(), 50);
 }
+$("brainGemini").onchange = () => showBrain("gemini");
+$("brainClaude").onchange = () => showBrain("claude");
 $("settingsForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const key = $("apiKey").value.trim();
-  if (!key.startsWith("sk-ant-")) {
+  const bad = formBrain === "claude" ? !key.startsWith("sk-ant-") : !/^AIza[\w-]{20,}$/.test(key);
+  if (bad) {
     $("settingsErr").hidden = false;
-    $("settingsErr").textContent = "API key Claude selalu diawali sk-ant-. Salin ulang dari console.anthropic.com.";
+    $("settingsErr").textContent = formBrain === "claude"
+      ? "API key Claude selalu diawali sk-ant-. Salin ulang dari console.anthropic.com."
+      : "API key Gemini biasanya diawali AIza. Salin ulang dari aistudio.google.com/apikey.";
     return;
   }
-  apiKey = key;
-  store.set("core9-key", key);
-  client = makeClient(key);
+  brain = formBrain;
+  store.set("core9-brain", brain);
+  if (brain === "claude") { apiKey = key; store.set("core9-key", key); client = makeClient(key); }
+  else { gKey = key; store.set("core9-gkey", key); }
+  applyBrainLabel();
   $("settings").hidden = true;
   setStatus("SIAGA");
 });
@@ -484,4 +595,5 @@ updateCount();
 greet();
 if (Capacitor.isNativePlatform()) initMic();
 else { mic.hidden = true; $("handsBtn").hidden = true; $("hint").textContent = "ENTER = KIRIM"; }
-if (!apiKey) openSettings();
+applyBrainLabel();
+if (!hasKey()) openSettings();

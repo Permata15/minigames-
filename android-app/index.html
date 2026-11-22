@@ -85,6 +85,7 @@
       </div>
       <dl class="hud">
         <div class="hud-row live"><dt>STATUS</dt><dd id="hudStatus">SIAGA</dd></div>
+        <div class="hud-row"><dt>OTAK</dt><dd id="hudBrain">GEMINI</dd></div>
         <div class="hud-row"><dt>MODE</dt><dd id="hudMode">KILAT</dd></div>
         <div class="hud-row"><dt>TRANSMISI</dt><dd id="hudCount">0</dd></div>
       </dl>
@@ -162,10 +163,16 @@
 <div class="overlay" id="settings" hidden>
   <form class="sheet armor" id="settingsForm">
     <h2>⚙ PENGATURAN CORE-9</h2>
-    <p>CORE-9 memakai <strong>Claude API</strong>. Masukkan API key Anda sekali saja. Key hanya disimpan di HP ini dan langsung dikirim ke server Claude, tidak ke tempat lain.</p>
-    <p class="small">Buat key di <span class="url" id="consoleUrl">console.anthropic.com</span> → API Keys → Create Key, lalu isi saldo di menu Billing.</p>
+    <label>OTAK AI</label>
+    <div class="brains" role="radiogroup" aria-label="Pilih AI">
+      <label class="brain"><input type="radio" name="brain" value="gemini" id="brainGemini">
+        <span><b>Gemini (Google)</b><small>GRATIS · kuota harian terbatas</small></span></label>
+      <label class="brain"><input type="radio" name="brain" value="claude" id="brainClaude">
+        <span><b>Claude (Anthropic)</b><small>Berbayar · perlu isi saldo</small></span></label>
+    </div>
+    <p class="small" id="keyHelp"></p>
     <label for="apiKey">API KEY</label>
-    <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+    <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Tempel API key di sini">
     <label class="check"><input id="showKey" type="checkbox"> Tampilkan key</label>
     <p class="err" id="settingsErr" hidden></p>
     <div class="row">
