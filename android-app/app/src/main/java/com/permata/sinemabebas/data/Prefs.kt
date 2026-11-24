@@ -23,6 +23,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("dataSaver", false)
         set(v) = sp.edit().putBoolean("dataSaver", v).apply()
 
+    /** Show only titles released in or after this year. */
+    var minYear: Int
+        get() = sp.getInt("minYear", 1997)
+        set(v) = sp.edit().putInt("minYear", v).apply()
+
     // ---- User-added sources ----
     fun sources(): List<PlayItem> =
         runCatching { PlayItem.listFromJson(sp.getString("sources", "[]") ?: "[]") }.getOrDefault(emptyList())

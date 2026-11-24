@@ -44,13 +44,24 @@ fun SearchScreen(vm: CatalogViewModel, onOpen: (Title) -> Unit) {
 }
 
 @Composable
-fun SettingsScreen(prefs: Prefs) {
+fun SettingsScreen(prefs: Prefs, onMinYear: (Int) -> Unit) {
+    var minYear by remember { mutableIntStateOf(prefs.minYear) }
     var sub by remember { mutableStateOf(prefs.subtitleLang) }
     var audio by remember { mutableStateOf(prefs.audioLang) }
     var saver by remember { mutableStateOf(prefs.dataSaver) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("Pengaturan", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
+        Text("Tampilkan film dari tahun", fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = minYear.toFloat(), onValueChange = { minYear = it.toInt() },
+                onValueChangeFinished = { onMinYear(minYear) },
+                valueRange = 1900f..2020f, steps = 0, modifier = Modifier.weight(1f),
+            )
+            Text("$minYear+", fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp))
+        }
+        Spacer(Modifier.height(12.dp))
         Text("Bahasa subtitle utama", fontWeight = FontWeight.SemiBold)
         (Languages.options + ("off" to "Mati")).forEach { (code, label) ->
             Row(verticalAlignment = Alignment.CenterVertically) {

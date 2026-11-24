@@ -30,6 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
+        com.permata.sinemabebas.data.ArchiveRepository.minYear = prefs.minYear
         setContent { SinemaTheme { App() } }
     }
 
@@ -83,7 +84,11 @@ class MainActivity : ComponentActivity() {
                     0 -> HomeScreen(vm, history, onOpen = { open = it }, onSeeAll = { category = it })
                     1 -> SearchScreen(vm) { open = it }
                     2 -> SourcesScreen(prefs) { items, i -> play(items, i) }
-                    else -> SettingsScreen(prefs)
+                    else -> SettingsScreen(prefs) { year ->
+                        prefs.minYear = year
+                        com.permata.sinemabebas.data.ArchiveRepository.minYear = year
+                        vm.onQuery(vm.query) // refresh search results with the new year filter
+                    }
                 }
             }
         }

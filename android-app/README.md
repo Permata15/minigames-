@@ -3,7 +3,7 @@
 Aplikasi Android ringan (Kotlin + Jetpack Compose + Media3 ExoPlayer) untuk menonton **film, serial TV, dan drama** secara gratis dari sumber legal.
 
 ## Fitur
-- **Katalog gratis & legal** dari Internet Archive: Film, Serial TV, Drama & Noir, Sci‑Fi & Horor, Animasi, Komedi — ribuan judul domain publik.
+- **Katalog gratis & legal** dari Internet Archive, default hanya film **tahun 1997 ke atas** (bisa diubah di Pengaturan): Terbaru, Film Populer, Drama & Indie, Film Pendek, Animasi, Sci‑Fi & Horor, Serial & Web Series.
 - **Pencarian** judul dengan scroll tanpa batas.
 - **Serial**: daftar episode, putar berurutan (tombol next/prev otomatis).
 - **Subtitle Indonesia, Inggris, Jerman**

@@ -42,9 +42,10 @@ class PagedList(private val load: suspend (page: Int) -> List<Title>) {
 class CatalogViewModel : ViewModel() {
     private val lists = HashMap<String, PagedList>()
 
-    fun category(key: String): PagedList = lists.getOrPut(key) {
+    /** Lists are cached per year filter, so changing the minimum year reloads everything. */
+    fun category(key: String): PagedList = lists.getOrPut("$key@${ArchiveRepository.minYear}") {
         val cat = ArchiveRepository.categories.first { it.key == key }
-        PagedList { ArchiveRepository.browse(cat.query, it) }.also { l -> viewModelScope.launch { l.loadMore() } }
+        PagedList { ArchiveRepository.browse(cat.query, it, cat.sort) }.also { l -> viewModelScope.launch { l.loadMore() } }
     }
 
     fun loadMore(list: PagedList) { viewModelScope.launch { list.loadMore() } }

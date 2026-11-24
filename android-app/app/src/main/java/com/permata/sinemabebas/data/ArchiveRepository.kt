@@ -9,27 +9,37 @@ import java.net.URLEncoder
  */
 object ArchiveRepository {
 
-    data class Category(val key: String, val label: String, val query: String)
+    data class Category(val key: String, val label: String, val query: String, val sort: String = "downloads desc")
 
+    private const val CC = "licenseurl:(*creativecommons*)"
+
+    // Collections checked against archive.org: each has hundreds or more titles from 1997 onwards.
     val categories = listOf(
-        Category("film", "Film", "collection:(feature_films)"),
-        Category("serial", "Serial TV", "collection:(classic_tv)"),
-        Category("drama", "Drama & Noir", "collection:(film_noir)"),
+        Category("baru", "Terbaru", "collection:(feature_films)", sort = "year desc"),
+        Category("film", "Film Populer", "collection:(feature_films)"),
+        Category("indie", "Drama & Indie", "collection:(moviesandfilms) AND $CC"),
+        Category("pendek", "Film Pendek", "collection:(short_films)"),
+        Category("animasi", "Animasi", "collection:(animationandcartoons) AND $CC"),
         Category("scifi", "Sci-Fi & Horor", "collection:(SciFi_Horror)"),
-        Category("animasi", "Animasi", "collection:(animationandcartoons)"),
-        Category("komedi", "Komedi", "collection:(classic_cartoons OR comedy_films)"),
+        Category("serial", "Serial & Web Series", "collection:(classic_tv) AND $CC"),
     )
 
     private const val SEARCH_SCOPE =
-        "collection:(feature_films OR classic_tv OR film_noir OR SciFi_Horror OR animationandcartoons OR moviesandfilms)"
+        "(collection:(feature_films OR short_films OR SciFi_Horror) OR " +
+            "(collection:(moviesandfilms OR animationandcartoons OR classic_tv) AND $CC))"
+
+    /** Only titles released in or after this year are shown (set from Settings; default 1997). */
+    @Volatile var minYear: Int = 1997
+
+    private fun yearFilter() = "year:[$minYear TO 2100]"
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
-    suspend fun browse(query: String, page: Int, rows: Int = 36): List<Title> {
-        val q = "($query) AND mediatype:(movies)"
+    suspend fun browse(query: String, page: Int, sort: String = "downloads desc", rows: Int = 36): List<Title> {
+        val q = "($query) AND mediatype:(movies) AND ${yearFilter()}"
         val url = "https://archive.org/advancedsearch.php?q=${enc(q)}" +
             "&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=year&fl%5B%5D=description" +
-            "&sort%5B%5D=${enc("downloads desc")}&rows=$rows&page=$page&output=json"
+            "&sort%5B%5D=${enc(sort)}&rows=$rows&page=$page&output=json"
         val docs = JSONObject(Http.get(url)).getJSONObject("response").getJSONArray("docs")
         return (0 until docs.length()).map { i ->
             val d = docs.getJSONObject(i)
