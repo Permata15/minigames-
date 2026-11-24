@@ -1,0 +1,22 @@
+name: Probe archive.org
+on:
+  push:
+    paths: [".github/workflows/probe.yml"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          q() { n=$(curl -s -G "https://archive.org/advancedsearch.php" --data-urlencode "q=$1" -d 'fl[]=identifier' -d rows=0 -d output=json | jq .response.numFound); echo "$n | $1"; }
+          for c in feature_films classic_tv film_noir SciFi_Horror animationandcartoons comedy_films classic_cartoons short_films shortfilms independentfilms independent_films opensource_movies moviesandfilms documentaries foreignfilms horror_films silent_films television tvseries webseries animation_films; do
+            q "collection:($c) AND mediatype:(movies)"
+            q "collection:($c) AND mediatype:(movies) AND year:[1997 TO 2026]"
+            q "collection:($c) AND mediatype:(movies) AND date:[1997-01-01 TO 2026-12-31]"
+            q "collection:($c) AND mediatype:(movies) AND year:[1997 TO 2026] AND licenseurl:*creativecommons*"
+          done
+          q "mediatype:(movies) AND year:[1997 TO 2026] AND licenseurl:*creativecommons* AND subject:(feature film)"
+          q "mediatype:(movies) AND year:[1997 TO 2026] AND licenseurl:*creativecommons* AND subject:(film)"
+          echo "--- sample top recent feature_films"
+          curl -s -G "https://archive.org/advancedsearch.php" --data-urlencode "q=collection:(feature_films) AND mediatype:(movies) AND year:[1997 TO 2026]" -d 'fl[]=identifier' -d 'fl[]=title' -d 'fl[]=year' -d 'sort[]=downloads desc' -d rows=25 -d output=json | jq -r '.response.docs[] | "\(.year) \(.title)"'
+          echo "--- sample opensource_movies CC recent"
+          curl -s -G "https://archive.org/advancedsearch.php" --data-urlencode "q=collection:(opensource_movies) AND mediatype:(movies) AND year:[1997 TO 2026] AND licenseurl:*creativecommons*" -d 'fl[]=title' -d 'fl[]=year' -d 'sort[]=downloads desc' -d rows=25 -d output=json | jq -r '.response.docs[] | "\(.year) \(.title)"'
