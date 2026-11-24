@@ -3,6 +3,10 @@ package com.permata.sinemabebas.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -197,9 +201,10 @@ private fun PressablePoster(t: Title, onClick: () -> Unit) {
 
 @Composable
 private fun Shimmer() {
-    val alpha by androidx.compose.animation.core.rememberInfiniteTransition(label = "sh").animateFloat(
-        0.25f, 0.6f,
-        androidx.compose.animation.core.infiniteRepeatable(tween(800), androidx.compose.animation.core.RepeatMode.Reverse),
+    val alpha by rememberInfiniteTransition(label = "sh").animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
         label = "a",
     )
     Box(
