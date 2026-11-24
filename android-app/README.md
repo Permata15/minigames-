@@ -17,7 +17,12 @@ Aplikasi Android ringan (Kotlin + Jetpack Compose + Media3 ExoPlayer) untuk meno
 
 > Aplikasi ini tidak mengambil konten Netflix atau layanan berbayar lain. Tambahkan di "Sumber Saya" hanya tautan yang Anda berhak tonton.
 
-## Cara mendapatkan APK
+## 📥 Download APK (langsung)
+**https://github.com/Permata15/minigames-/releases/latest/download/SinemaBebas.apk**
+
+Buka link di HP → file terunduh → ketuk untuk instal (izinkan "Instal dari sumber ini").
+
+## Cara membangun sendiri
 **Otomatis (GitHub Actions):** setiap push ke folder `android-app/` membangun APK. Buka tab **Actions** → *Build Android APK* → run terbaru → unduh artifact **SinemaBebas-apk**, ekstrak, lalu instal `app-release.apk` di HP (izinkan "Instal dari sumber tidak dikenal").
 
 **Manual (Android Studio):** buka folder `android-app/`, tunggu Gradle sync, lalu *Run* atau *Build → Build APK(s)*.
