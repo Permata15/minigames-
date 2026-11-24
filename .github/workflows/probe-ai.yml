@@ -1,0 +1,27 @@
+name: Probe keyless AI
+on:
+  push:
+    paths: ['.github/workflows/probe-ai.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe endpoints
+        run: |
+          set +e
+          H='-H Origin:https://localhost -H Content-Type:application/json'
+          echo "=== 1 pollinations openai POST (stream=false)"
+          curl -s -m 60 -D - $H https://text.pollinations.ai/openai -d '{"model":"openai","messages":[{"role":"system","content":"Reply in the user language, 1 sentence."},{"role":"user","content":"Halo, apa kabar? Siapa presiden Indonesia sekarang?"}]}' | head -c 1500; echo
+          sleep 16
+          echo "=== 2 pollinations openai POST stream"
+          curl -s -m 60 -N $H https://text.pollinations.ai/openai -d '{"model":"openai","stream":true,"messages":[{"role":"user","content":"こんにちは！元気？"}]}' | head -c 1200; echo
+          sleep 16
+          echo "=== 3 pollinations GET prompt"
+          curl -s -m 60 -D - -H Origin:https://localhost "https://text.pollinations.ai/Say%20hello%20in%20Javanese" | head -c 800; echo
+          sleep 16
+          echo "=== 4 pollinations models"
+          curl -s -m 30 https://text.pollinations.ai/models | head -c 1500; echo
+          echo "=== 5 OPTIONS preflight"
+          curl -s -m 30 -X OPTIONS -D - -o /dev/null -H Origin:https://localhost -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' https://text.pollinations.ai/openai
+          echo "=== 6 gen.pollinations.ai"
+          curl -s -m 30 -D - $H https://gen.pollinations.ai/v1/chat/completions -d '{"model":"openai","messages":[{"role":"user","content":"hi"}]}' | head -c 600; echo
