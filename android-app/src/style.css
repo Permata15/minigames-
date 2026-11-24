@@ -247,3 +247,7 @@ html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent
 .brain span { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-body); color: var(--fg); font-size: 15px; }
 .brain small { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: .06em; }
 .brain:has(input[value=gemini]:checked) small { color: #3ddc84; }
+.brain:has(input[value=offline]:checked) small { color: var(--visor); }
+.offline { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--seam); background: rgba(58,216,255,.05); }
+.meter { height: 10px; background: #0b1017; border: 1px solid var(--seam); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--visor), var(--energy)); transition: width .3s; }

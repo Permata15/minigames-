@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Capacitor } from "@capacitor/core";
 import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 import { TextToSpeech, QueueStrategy } from "@capacitor-community/text-to-speech";
+import { CapgoLLM } from "@capgo/capacitor-llm";
 
 /* ================= konfigurasi ================= */
 // KILAT: model tercepat, tanpa berpikir dulu → jawaban langsung keluar.
@@ -9,6 +10,11 @@ import { TextToSpeech, QueueStrategy } from "@capacitor-community/text-to-speech
 const MODELS = { quick: "claude-haiku-5-5", smart: "claude-opus-5-5" };
 // Gemini (gratis): model Flash, dengan cadangan jika nama model tidak tersedia.
 const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest"];
+// Offline: Gemini Nano bawaan HP (jika ada), atau Gemma 4 dari Google yang diunduh sekali.
+const OFFLINE_MODEL = {
+  url: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm?download=true",
+  file: "gemma-4-E2B-it.litertlm",
+};
 
 const LANGS = {
   id: ["Bahasa Indonesia", "id-ID"], en: ["English", "en-US"], ms: ["Bahasa Melayu", "ms-MY"],
@@ -45,11 +51,11 @@ let voiceOn = store.get("core9-voice", "on") === "on";
 let handsFree = store.get("core9-hands", "off") === "on";
 let apiKey = store.get("core9-key", "");        // Claude
 let gKey = store.get("core9-gkey", "");          // Gemini
-let brain = store.get("core9-brain", "gemini");
+let brain = store.get("core9-brain", "offline");
 let client = apiKey ? makeClient(apiKey) : null;
 let geminiModel = 0;                             // indeks di GEMINI_MODELS yang terbukti jalan
 let geminiNoThinkCfg = false;
-const hasKey = () => (brain === "gemini" ? !!gKey : !!client);
+const hasKey = () => (brain === "offline" ? offline.state === "ready" : brain === "gemini" ? !!gKey : !!client);
 
 function makeClient(key) {
   // Aplikasi berjalan di HP Anda sendiri, jadi API key dikirim langsung dari HP ke Claude.
@@ -351,7 +357,98 @@ async function runGemini(onDelta, signal) {
   return "end_turn";
 }
 
+// ---------- Offline di HP (tanpa key) ----------
+const offline = { state: "idle", kind: null, chatId: null, busy: null, error: "" };
+let offlineListeners = false;
+const offlineHandlers = { text: null, done: null, fail: null };
+
+function offlineLabel() { return offline.kind === "nano" ? "Gemini Nano (bawaan HP)" : "Gemma 4 (offline)"; }
+
+async function ensureOfflineListeners() {
+  if (offlineListeners) return;
+  offlineListeners = true;
+  await CapgoLLM.addListener("textFromAi", (e) => { if (e.chatId === offline.chatId) offlineHandlers.text?.(e.text || ""); });
+  await CapgoLLM.addListener("aiFinished", (e) => { if (e.chatId === offline.chatId) offlineHandlers.done?.(); });
+  await CapgoLLM.addListener("generationError", (e) => { if (!e.chatId || e.chatId === offline.chatId) offlineHandlers.fail?.(e.error || "gagal"); });
+  await CapgoLLM.addListener("downloadProgress", (e) => showDownload(e.progress));
+}
+
+// Coba muat otak offline yang sudah ada. Hasil: "ready" atau "need_download".
+async function loadOffline() {
+  if (!Capacitor.isNativePlatform()) throw new Error("Mode offline hanya bisa dipakai di aplikasi Android");
+  await ensureOfflineListeners();
+  offline.state = "loading";
+  updateOfflinePanel();
+  const path = store.get("core9-offline-path", "");
+  if (path) {
+    try {
+      await CapgoLLM.setModel({ path, modelType: "litertlm", maxTokens: 4096, temperature: 0.7, backend: "cpu" });
+      return offlineReady("gemma");
+    } catch { store.set("core9-offline-path", ""); }
+  }
+  try {
+    await CapgoLLM.setModel({ path: "Gemini Nano" });
+    return offlineReady("nano");
+  } catch { /* HP ini tidak punya Gemini Nano */ }
+  offline.state = "need_download";
+  updateOfflinePanel();
+  return "need_download";
+}
+async function offlineReady(kind) {
+  offline.kind = kind;
+  offline.state = "ready";
+  offline.chatId = (await CapgoLLM.createChat()).id;
+  offline.fresh = true;
+  updateOfflinePanel();
+  applyBrainLabel();
+  return "ready";
+}
+async function downloadOffline() {
+  offline.state = "downloading";
+  showDownload(0);
+  updateOfflinePanel();
+  try {
+    const { path } = await CapgoLLM.downloadModel({ url: OFFLINE_MODEL.url, filename: OFFLINE_MODEL.file });
+    store.set("core9-offline-path", path);
+    offline.state = "loading";
+    updateOfflinePanel();
+    await CapgoLLM.setModel({ path, modelType: "litertlm", maxTokens: 4096, temperature: 0.7, backend: "cpu" });
+    await offlineReady("gemma");
+    return true;
+  } catch (e) {
+    offline.state = "error";
+    offline.error = (e && (e.message || e.errorMessage)) || "tidak diketahui";
+    updateOfflinePanel();
+    return false;
+  }
+}
+async function newOfflineChat() {
+  if (offline.state !== "ready") return;
+  try { offline.chatId = (await CapgoLLM.createChat()).id; offline.fresh = true; } catch {}
+}
+
+async function runOffline(onDelta, signal) {
+  if (offline.busy) { setStatus("MENYELESAIKAN", "work"); await offline.busy; }
+  const last = turns[turns.length - 1].content;
+  const langNote = lang === "auto" ? "" : `[Jawab dalam ${LANGS[lang][0]}] `;
+  // Model offline tidak punya kolom instruksi sistem: instruksi ikut di pesan pertama percakapan.
+  const message = offline.fresh ? `${systemPrompt()}\n\n---\nPesan pengguna: ${langNote}${last}` : langNote + last;
+  offline.fresh = false;
+  let finish;
+  const done = new Promise((resolve, reject) => {
+    offlineHandlers.text = (t) => { if (!signal.aborted) onDelta(t); };
+    offlineHandlers.done = () => resolve("end_turn");
+    offlineHandlers.fail = (err) => reject(new GeminiError("Otak offline gagal menjawab: " + err));
+  });
+  offline.busy = done.catch(() => {}).finally(() => { offline.busy = null; });
+  await CapgoLLM.sendMessage({ chatId: offline.chatId, message });
+  // Tombol STOP: tampilan berhenti seketika, model menyelesaikan kalimatnya di latar belakang.
+  const stopped = new Promise((resolve) => signal.addEventListener("abort", () => resolve("end_turn"), { once: true }));
+  return Promise.race([done, stopped]);
+}
+
 async function runAI(onDelta, signal) {
+  if (brain === "offline") return runOffline(onDelta, signal);
   if (brain === "claude") return runClaude(onDelta, signal);
   for (let attempt = 0; ; attempt++) {
     try { return await runGemini(onDelta, signal); }
@@ -502,17 +599,68 @@ function stopListening(cancel) {
 const KEY_HELP = {
   gemini: 'Gratis: buka <span class="url">aistudio.google.com/apikey</span> → login akun Google → <b>Create API key</b> → salin, lalu tempel di bawah. Tidak perlu kartu kredit.',
   claude: 'Berbayar: buat key di <span class="url">console.anthropic.com</span> → API Keys, dan isi saldo di menu Billing (tanpa saldo, Claude tidak bisa menjawab).',
+  offline: "Tanpa API key dan tanpa biaya. AI berjalan langsung di HP Anda, jadi tetap bisa dipakai tanpa internet.",
 };
 let formBrain = brain;
+function showDownload(progress) {
+  const pct = Math.max(0, Math.min(100, Number(progress) || 0));
+  $("offlineMeter").hidden = false;
+  $("offlineBar").style.width = pct + "%";
+  if (offline.state === "downloading") $("offlineSub").textContent = `Mengunduh… ${pct.toFixed(0)}%. Biarkan aplikasi tetap terbuka.`;
+}
+function updateOfflinePanel() {
+  const t = $("offlineText"), sub = $("offlineSub"), ok = $("settingsOk");
+  $("offlineMeter").hidden = offline.state !== "downloading";
+  ok.disabled = offline.state === "downloading" || offline.state === "loading";
+  if (formBrain !== "offline") { ok.textContent = "SIMPAN"; ok.disabled = false; return; }
+  switch (offline.state) {
+    case "ready":
+      t.innerHTML = `✅ Otak offline siap: <b>${offlineLabel()}</b>.`;
+      sub.textContent = "Tidak perlu internet untuk mengobrol.";
+      ok.textContent = "PAKAI";
+      break;
+    case "loading":
+      t.textContent = "⏳ Menyiapkan otak AI di HP… (bisa 10–60 detik)";
+      sub.textContent = "";
+      ok.textContent = "TUNGGU";
+      break;
+    case "downloading":
+      t.innerHTML = "📥 Mengunduh otak AI <b>Gemma 4</b> dari Google (sekali saja).";
+      ok.textContent = "MENGUNDUH";
+      break;
+    case "need_download":
+      t.innerHTML = "HP ini belum punya AI bawaan. Unduh otak AI <b>Gemma 4</b> sekali saja (ukuran besar, beberapa GB), setelah itu bisa dipakai tanpa internet.";
+      sub.textContent = "Pakai Wi-Fi. Butuh ruang kosong ±4 GB dan RAM 6 GB atau lebih.";
+      ok.textContent = "UNDUH";
+      break;
+    case "error":
+      t.innerHTML = "⚠️ Gagal menyiapkan otak offline.";
+      sub.textContent = "Detail: " + offline.error + ". Pastikan Wi-Fi stabil dan ruang penyimpanan cukup, lalu tekan COBA LAGI.";
+      ok.textContent = "COBA LAGI";
+      break;
+    default:
+      t.textContent = "Tekan SIAPKAN untuk memeriksa AI bawaan HP Anda.";
+      sub.textContent = "";
+      ok.textContent = "SIAPKAN";
+  }
+}
 function showBrain(b) {
   formBrain = b;
+  $("brainOffline").checked = b === "offline";
   $("brainGemini").checked = b === "gemini";
   $("brainClaude").checked = b === "claude";
   $("keyHelp").innerHTML = KEY_HELP[b];
-  $("apiKey").value = b === "gemini" ? gKey : apiKey;
-  $("apiKey").placeholder = b === "gemini" ? "AIza..." : "sk-ant-...";
+  $("keyFields").hidden = b === "offline";
+  $("offlinePanel").hidden = b !== "offline";
+  if (b !== "offline") {
+    $("apiKey").value = b === "gemini" ? gKey : apiKey;
+    $("apiKey").placeholder = b === "gemini" ? "AIza..." : "sk-ant-...";
+  }
+  updateOfflinePanel();
 }
-function applyBrainLabel() { $("hudBrain").textContent = brain === "gemini" ? "GEMINI" : "CLAUDE"; }
+function applyBrainLabel() {
+  $("hudBrain").textContent = brain === "offline" ? (offline.kind === "nano" ? "NANO" : "OFFLINE") : brain === "gemini" ? "GEMINI" : "CLAUDE";
+}
 function openSettings(err) {
   showBrain(brain);
   $("settingsErr").hidden = !err;
@@ -520,10 +668,36 @@ function openSettings(err) {
   $("settingsCancel").hidden = !hasKey();
   $("settings").hidden = false;
 }
+$("brainOffline").onchange = () => showBrain("offline");
 $("brainGemini").onchange = () => showBrain("gemini");
 $("brainClaude").onchange = () => showBrain("claude");
-$("settingsForm").addEventListener("submit", (e) => {
+function useBrain(b) {
+  brain = b;
+  store.set("core9-brain", b);
+  applyBrainLabel();
+  $("settings").hidden = true;
+  setStatus("SIAGA");
+}
+$("settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  $("settingsErr").hidden = true;
+  if (formBrain === "offline") {
+    try {
+      if (offline.state === "ready") return useBrain("offline");
+      if (offline.state === "idle") {
+        if ((await loadOffline()) === "ready") return useBrain("offline");
+        return;
+      }
+      if (offline.state === "need_download" || offline.state === "error") {
+        if (await downloadOffline()) useBrain("offline");
+      }
+    } catch (err) {
+      offline.state = "error";
+      offline.error = err.message || String(err);
+      updateOfflinePanel();
+    }
+    return;
+  }
   const key = $("apiKey").value.trim();
   const bad = formBrain === "claude" ? !key.startsWith("sk-ant-") : !/^AIza[\w-]{20,}$/.test(key);
   if (bad) {
@@ -533,13 +707,9 @@ $("settingsForm").addEventListener("submit", (e) => {
       : "API key Gemini biasanya diawali AIza. Salin ulang dari aistudio.google.com/apikey.";
     return;
   }
-  brain = formBrain;
-  store.set("core9-brain", brain);
-  if (brain === "claude") { apiKey = key; store.set("core9-key", key); client = makeClient(key); }
+  if (formBrain === "claude") { apiKey = key; store.set("core9-key", key); client = makeClient(key); }
   else { gKey = key; store.set("core9-gkey", key); }
-  applyBrainLabel();
-  $("settings").hidden = true;
-  setStatus("SIAGA");
+  useBrain(formBrain);
 });
 $("settingsCancel").onclick = () => { $("settings").hidden = true; };
 $("showKey").onchange = (e) => { $("apiKey").type = e.target.checked ? "text" : "password"; };
@@ -580,6 +750,7 @@ $("reset").onclick = () => {
   if (listening) stopListening(true);
   turns = [];
   heard = ""; input.value = "";
+  if (brain === "offline") newOfflineChat();
   updateCount();
   setStatus("SIAGA");
   greet();
@@ -596,4 +767,12 @@ greet();
 if (Capacitor.isNativePlatform()) initMic();
 else { mic.hidden = true; $("handsBtn").hidden = true; $("hint").textContent = "ENTER = KIRIM"; }
 applyBrainLabel();
-if (!hasKey()) openSettings();
+if (brain === "offline") {
+  // Langsung siapkan otak offline. Jika belum ada di HP, tampilkan pengaturan untuk mengunduhnya.
+  if (Capacitor.isNativePlatform()) {
+    setStatus("MENYIAPKAN", "work");
+    loadOffline()
+      .then((r) => { setStatus("SIAGA"); if (r !== "ready") openSettings(); })
+      .catch((e) => { offline.state = "error"; offline.error = e.message; setStatus("SIAGA"); openSettings(); });
+  } else openSettings();
+} else if (!hasKey()) openSettings();
