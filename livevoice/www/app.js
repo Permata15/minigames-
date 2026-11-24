@@ -8,6 +8,10 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const abortableSleep = (ms, signal) => new Promise((res, rej) => {
+  const t = setTimeout(res, ms);
+  if (signal) signal.addEventListener('abort', () => { clearTimeout(t); const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }, { once: true });
+});
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function toast(msg, ms = 2200) {
@@ -37,18 +41,23 @@ async function copyText(text) {
 
 /* ============================== Setelan ============================== */
 const DEFAULTS = {
-  v: 3, apiKey: '', model: 'gemini-2.5-flash', engine: 'ai', handsfree: true, search: false,
+  v: 4, provider: 'free', apiKey: '', model: 'gemini-2.5-flash', engine: 'device', handsfree: true, search: false,
   silenceMs: 1000, name: 'Nara', style: 'friend', rate: 1.05, pitch: 1.0, ttsOn: true, talkLang: 'auto',
   trA: 'id', trB: 'en', prLang: 'id', prFont: 28,
 };
 const SAVED = store('settings') || {};
 const S = Object.assign({}, DEFAULTS, SAVED);
+if ((SAVED.v || 0) < 4) {
+  // v4: default tanpa API key (AI gratis + pengenal suara HP); pengguna yang sudah punya key tetap bisa memilih Gemini
+  S.provider = 'free'; S.engine = 'device';
+}
 if ((SAVED.v || 0) < 3) {
   // migrasi: model & Google Search lama sering kena kuota 0 di akun gratis
   if (!S.model || /latest/.test(S.model)) S.model = DEFAULTS.model;
-  S.search = false; S.v = 3;
-  try { localStorage.setItem('lv2.settings', JSON.stringify(S)); } catch {}
+  S.search = false;
 }
+S.v = DEFAULTS.v;
+try { localStorage.setItem('lv2.settings', JSON.stringify(S)); } catch {}
 const saveSettings = () => store('settings', S);
 
 /* ============================== Bahasa ============================== */
@@ -93,6 +102,19 @@ function normLang(code) {
   return b ? `${a.toLowerCase()}-${b.toUpperCase()}` : a.toLowerCase();
 }
 const deviceLang = normLang(navigator.language || 'id-ID');
+
+/** Tebak bahasa dari huruf yang dipakai (cepat, offline). null bila huruf Latin. */
+function guessLang(t) {
+  t = String(t || '');
+  if (/[\u3040-\u30ff]/.test(t)) return 'ja-JP';
+  if (/[\uac00-\ud7af]/.test(t)) return 'ko-KR';
+  if (/[\u4e00-\u9fff]/.test(t)) return 'zh-CN';
+  if (/[\u0600-\u06ff]/.test(t)) return 'ar-SA';
+  if (/[\u0e00-\u0e7f]/.test(t)) return 'th-TH';
+  if (/[\u0900-\u097f]/.test(t)) return 'hi-IN';
+  if (/[\u0400-\u04ff]/.test(t)) return 'ru-RU';
+  return null;
+}
 
 /* ============================== Platform ============================== */
 const Cap = window.Capacitor;
@@ -532,6 +554,98 @@ const Gemini = {
   },
 };
 
+/* ============================== AI gratis tanpa API key ============================== */
+const FreeAI = {
+  // endpoint OpenAI-compatible yang tidak butuh API key (dibatasi 1 permintaan sekaligus per IP)
+  URL: 'https://text.pollinations.ai/openai',
+  MODELS: ['openai'], // tier anonim: gpt-oss-20b
+  working: store('freeModel') || null,
+
+  async stream({ system, history, userText, onText, signal }) {
+    const messages = [];
+    if (system) messages.push({ role: 'system', content: system });
+    for (const h of history) messages.push({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text });
+    messages.push({ role: 'user', content: userText });
+    const models = [...new Set([this.working, ...this.MODELS].filter(Boolean))];
+    let lastErr;
+    for (let attempt = 0; attempt < models.length + 2; attempt++) {
+      const model = models[Math.min(attempt, models.length - 1)];
+      try {
+        const r = await this._once(model, messages, onText, signal);
+        if (this.working !== model) { this.working = model; store('freeModel', model); }
+        return r;
+      } catch (e) {
+        if (e.name === 'AbortError' || e.started) throw e;
+        lastErr = e;
+        // batas pengguna anonim (402/429 + Retry-After) → tunggu sesuai arahan server lalu coba lagi
+        let wait = e.retryAfter ? Math.min(45, e.retryAfter) * 1000 : (e.status >= 500 || !e.status ? 1500 : 4000);
+        if (e.status === 402 || e.status === 429) {
+          const until = Date.now() + wait;
+          const tick = () => { const left = Math.ceil((until - Date.now()) / 1000); if (left > 0) { setStatus('thinking', `Server gratis antre… ${left} dtk`); } };
+          tick(); const iv = setInterval(tick, 1000);
+          try { await abortableSleep(wait, signal); } finally { clearInterval(iv); }
+        } else await abortableSleep(wait, signal);
+      }
+    }
+    const err = new Error(!navigator.onLine ? 'Tidak ada koneksi internet.'
+      : 'Server AI gratis sedang sibuk. Coba lagi beberapa detik lagi.' + (lastErr && lastErr.message ? ` (${lastErr.message.slice(0, 80)})` : ''));
+    throw err;
+  },
+
+  async _once(model, messages, onText, signal) {
+    const res = await fetch(this.URL, {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json' },
+      // non-stream lebih cepat & stabil untuk tier anonim
+      body: JSON.stringify({ model, messages, stream: false, private: true, referrer: 'livevoice-ai' }),
+    });
+    if (!res.ok) {
+      const ra = parseFloat(res.headers.get('retry-after') || '');
+      let msg = `HTTP ${res.status}`;
+      try { const t = await res.text(); msg = (JSON.parse(t).error || {}).message || JSON.parse(t).error || t.slice(0, 120); } catch {}
+      const e = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg)); e.status = res.status; e.retryAfter = ra > 0 ? ra : 0; throw e;
+    }
+    const ctype = res.headers.get('content-type') || '';
+    let full = '', started = false;
+    try {
+      if (!ctype.includes('event-stream')) {
+        // server mengirim jawaban utuh (bukan stream)
+        const t = await res.text();
+        let text = t;
+        try { const j = JSON.parse(t); text = j.choices[0].message.content; } catch {}
+        full = text || ''; started = true; onText && onText(full);
+        return { text: full, sources: [] };
+      }
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim();
+          if (data === '[DONE]') continue;
+          let j; try { j = JSON.parse(data); } catch { continue; }
+          const d = j.choices && j.choices[0] && (j.choices[0].delta || j.choices[0].message);
+          const t = d && d.content;
+          if (t) { full += t; started = true; onText && onText(t); }
+        }
+      }
+    } catch (e) { e.started = started; throw e; }
+    if (!full.trim()) { const e = new Error('Jawaban kosong'); e.status = 0; throw e; }
+    return { text: full, sources: [] };
+  },
+};
+
+/** Pilih otak AI: Gemini bila dipilih & ada key, selain itu AI gratis tanpa key. */
+const AI = {
+  useGemini() { return S.provider === 'gemini' && Gemini.hasKey(); },
+  label() { return this.useGemini() ? 'Gemini' : 'AI gratis'; },
+};
+
 /* ============================== Terjemahan ============================== */
 async function translate(text, tl, sl = 'auto') {
   text = text.trim();
@@ -543,11 +657,10 @@ async function translate(text, tl, sl = 'auto') {
     const j = await r.json();
     return { text: j[0].map((x) => x[0]).join(''), detected: j[2] || sl };
   } catch (e) {
-    if (!Gemini.hasKey()) throw new Error('Terjemahan gagal. Cek koneksi internet.');
-    const out = await Gemini.once({
-      contents: [{ role: 'user', parts: [{ text }] }],
-      system: `Translate the user's text into language code "${tl}". Output only the translation, no notes.`,
-    });
+    const system = `Translate the user's text into language code "${tl}". Output only the translation, no notes.`;
+    const out = AI.useGemini()
+      ? await Gemini.once({ contents: [{ role: 'user', parts: [{ text }] }], system })
+      : (await FreeAI.stream({ system, history: [], userText: text })).text.trim();
     return { text: out, detected: sl };
   }
 }
@@ -588,6 +701,7 @@ const Talk = {
       'LANGUAGE: Automatically detect the language the user speaks or writes (any language, including regional ones like Javanese, Sundanese, Balinese, or mixed slang) and ALWAYS reply in that same language, naturally, like a native speaker. If they ask you to switch language or practice another language, do it. ' + hint,
       'OUTPUT FORMAT (mandatory, every reply): the very first line must be [[LANG|TRANSCRIPT]] where LANG is the BCP-47 code of the language of YOUR reply (e.g. id-ID, en-US, ja-JP, jv-ID, su-ID, ar-SA) and TRANSCRIPT is an exact transcript of what the user just said, in its original script. Then a newline, then your reply.',
       'SPOKEN STYLE: your reply is read aloud by text-to-speech, so write plain conversational sentences: no markdown, no bullet lists, no emoji, no URLs, no headings. Keep it short (usually 1-3 sentences, under 60 words) unless the user explicitly asks for detail or a story.',
+      AI.useGemini() ? '' : 'KNOWLEDGE LIMIT: you cannot browse the internet and your knowledge may be out of date. For current officeholders, news, prices, scores, or anything that may have changed recently, give your best knowledge but clearly say it might be outdated and suggest checking a current source.',
       'ACCURACY: be factually correct. For current events, prices, schedules, sports, weather, or anything time-sensitive, use Google Search. If you are not sure, say so honestly instead of guessing. Never invent facts.',
       'If the audio is unclear, silent, or just noise, use an empty TRANSCRIPT and briefly ask the user to repeat, in the language you last used.',
       `Current date/time: ${new Date().toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}. Device language: ${deviceLang}.`,
@@ -611,8 +725,8 @@ const Talk = {
   level(v) { document.documentElement.style.setProperty('--orb-level', v.toFixed(3)); },
 
   needKey() {
-    if (Gemini.hasKey()) return false;
-    toast('Masukkan API key Gemini dulu di Setelan', 3000);
+    if (S.provider !== 'gemini' || Gemini.hasKey()) return false;
+    toast('Isi API key Gemini di Setelan, atau pilih "AI gratis tanpa API key"', 3500);
     showView('settings');
     $('#set-key').focus();
     return true;
@@ -654,6 +768,7 @@ const Talk = {
   },
 
   useDeviceEngine() {
+    if (!AI.useGemini()) return DeviceSTT.available; // mode tanpa key: suara dikenali oleh HP
     if (S.engine === 'device' && DeviceSTT.available) return true;
     return !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia; // fallback
   },
@@ -684,8 +799,9 @@ const Talk = {
       this.capture = DeviceSTT.listen({ lang, silenceMs: S.silenceMs, onPartial: (t) => { live.textContent = t; } });
       const text = await this.capture.promise;
       this.capture = null;
-      return text ? { text } : null;
+      return text ? { text, lang } : null;
     }
+    if (!AI.useGemini()) { toast('Pengenal suara tidak tersedia di perangkat ini. Ketik pesan saja ya.'); this.end(); return null; }
     $('#talk-engine-label').textContent = 'Universal AI · deteksi otomatis';
     this.capture = Mic.listen({ silenceMs: S.silenceMs, onLevel: (v) => this.level(v) });
     const audio = await this.capture.promise;
@@ -719,7 +835,8 @@ const Talk = {
     const contents = this.history.slice(-20).map((h) => ({ role: h.role, parts: [{ text: h.text }] }));
     contents.push({ role: 'user', parts: userParts });
 
-    let raw = '', header = null, reply = '', lang = this.lastLang || deviceLang, transcript = input.text || '';
+    let raw = '', header = null, reply = '', transcript = input.text || '';
+    let lang = input.lang || guessLang(input.text) || this.lastLang || deviceLang;
     let spoke = false;
     const tEl = ai.querySelector('.t');
     const speaker = new SentenceStream((s) => {
@@ -743,7 +860,7 @@ const Talk = {
             delta = t.slice(end + 2).replace(/^\s*\n?/, '');
             if (!input.text) me.querySelector('.t').innerHTML = transcript ? esc(transcript) : '🎤 <i>(tidak terdengar jelas)</i>';
           }
-        } else if (t.length >= 2) { header = ''; delta = t; }
+        } else if (t.length >= 2) { header = ''; delta = t; lang = guessLang(t) || lang; }
         else return;
       }
       if (!delta) return;
@@ -755,7 +872,9 @@ const Talk = {
 
     this.abort = new AbortController();
     try {
-      const res = await Gemini.stream({ contents, system: this.systemPrompt(), onText: feed, signal: this.abort.signal });
+      const res = AI.useGemini()
+        ? await Gemini.stream({ contents, system: this.systemPrompt(), onText: feed, signal: this.abort.signal })
+        : await FreeAI.stream({ system: this.systemPrompt(), history: this.history.slice(-16), userText: input.text, onText: feed, signal: this.abort.signal });
       if (run !== this.runId) return;
       if (header === null && raw) { // jawaban sangat pendek / header terpotong
         header = ''; reply = raw.replace(/^\s*\[\[[^\]]*\]?\]?\s*/, '').trim(); tEl.textContent = reply; speaker.push(reply);
@@ -854,7 +973,7 @@ const Tr = {
       const c = DeviceSTT.listen({ lang: from.code, silenceMs: S.silenceMs, onPartial: (t) => { $('#tr-interim-text').textContent = t; scrollDown($('#tr-scroll')); } });
       this.capture = { side, stop: c.stop };
       text = await c.promise;
-    } else if (Gemini.hasKey()) {
+    } else if (AI.useGemini()) {
       const c = Mic.listen({ silenceMs: S.silenceMs, onLevel: () => {} });
       this.capture = { side, stop: () => c.stop(true) };
       const audio = await c.promise;
@@ -862,7 +981,7 @@ const Tr = {
         setStatus('thinking', 'Mentranskrip…');
         text = await Gemini.once({ contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'audio/wav', data: audio.base64 } }, { text: `Transcribe this ${from.name} speech exactly. Output only the transcript.` }] }] }).catch(() => '');
       }
-    } else toast('Pengenal suara tidak tersedia di browser ini. Isi API key atau pakai Chrome.');
+    } else toast('Pengenal suara tidak tersedia di browser ini. Pakai Chrome atau ketik teksnya.');
     this.capture = null;
     btn.classList.remove('active'); box.classList.add('hidden');
     if (text) await this.translateAndShow(text, from, to);
@@ -1058,7 +1177,7 @@ function renderTtsBtn() {
 
 function talkLangLabel() {
   $('#talk-lang-label').textContent = S.talkLang === 'auto' ? 'Bahasa: Otomatis' : `${langByAny(S.talkLang).flag} ${langByAny(S.talkLang).name}`;
-  $('#talk-engine-label').textContent = S.engine === 'ai' ? 'Universal AI · deteksi otomatis' : 'Pengenal suara HP';
+  $('#talk-engine-label').textContent = AI.useGemini() && S.engine === 'ai' ? 'Gemini · deteksi otomatis' : `${AI.label()} · suara HP`;
 }
 
 function openLangSheet() {
@@ -1079,11 +1198,20 @@ function bindSettings() {
     const out = $('#set-test-result'); out.textContent = 'Menguji…';
     const t0 = performance.now();
     try {
-      Gemini.exhausted = {}; Gemini.working = null; store('workingModel', null);
-      const r = await Gemini.once({ contents: [{ role: 'user', parts: [{ text: 'Say "OK" only.' }] }] });
-      out.textContent = `✅ Terhubung lewat model ${Gemini.working} (${Math.round(performance.now() - t0)} ms): ${r.slice(0, 40)}`;
+      if (AI.useGemini()) {
+        Gemini.exhausted = {}; Gemini.working = null; store('workingModel', null);
+        const r = await Gemini.once({ contents: [{ role: 'user', parts: [{ text: 'Say "OK" only.' }] }] });
+        out.textContent = `✅ Gemini terhubung lewat model ${Gemini.working} (${Math.round(performance.now() - t0)} ms): ${r.slice(0, 40)}`;
+      } else {
+        if (S.provider === 'gemini') throw new Error('API key kosong');
+        const r = await FreeAI.stream({ history: [], userText: 'Reply with exactly: OK' });
+        out.textContent = `✅ AI gratis terhubung (${Math.round(performance.now() - t0)} ms): ${r.text.slice(0, 40)}`;
+      }
     } catch (e) { out.textContent = '❌ ' + (e.message === 'NO_KEY' ? 'API key kosong' : e.message); }
   };
+  const syncProvider = () => { $('#gemini-fields').classList.toggle('hidden', S.provider !== 'gemini'); talkLangLabel(); };
+  $$('input[name=provider]').forEach((r) => { r.checked = r.value === S.provider; r.onchange = () => { S.provider = r.value; saveSettings(); syncProvider(); }; });
+  syncProvider();
   $$('input[name=engine]').forEach((r) => { r.checked = r.value === S.engine; r.onchange = () => { S.engine = r.value; saveSettings(); talkLangLabel(); }; });
   const bindCheck = (id, k) => { const el = $(id); el.checked = S[k]; el.onchange = () => { S[k] = el.checked; saveSettings(); }; };
   bindCheck('#set-handsfree', 'handsfree'); bindCheck('#set-search', 'search');
@@ -1190,5 +1318,5 @@ function bindUI() {
   if (!isNative && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  if (!Gemini.hasKey()) setTimeout(() => toast('Tip: isi API key Gemini gratis di tab Setelan untuk mulai ngobrol', 4000), 800);
+  if (!Talk.history.length) setTimeout(() => toast('Siap tanpa API key — ketuk bola dan mulai ngobrol!', 3500), 800);
 })();

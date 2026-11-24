@@ -65,7 +65,7 @@
       <div class="scroll" id="talk-scroll">
         <div class="empty" id="talk-empty">
           <h2>Hai! Ayo ngobrol 👋</h2>
-          <p>Tekan bola di bawah lalu bicara dengan bahasa apa saja. Aku dengar, jawab, dan langsung bicara balik — lalu otomatis mendengarkan lagi, jadi kita bisa tektokan tanpa tekan-tekan tombol.</p>
+          <p>Tanpa API key, langsung pakai! Tekan bola lalu bicara. Pilih bahasamu lewat tombol "Bahasa" di atas, lalu aku ikut bahasa yang kamu pakai. Aku dengar, jawab, dan langsung bicara balik — lalu otomatis mendengarkan lagi, jadi kita bisa tektokan tanpa tekan-tekan tombol.</p>
           <div class="suggest">
             <button data-q="Ceritain fakta unik hari ini dong">Fakta unik hari ini</button>
             <button data-q="Ajari aku 3 kalimat bahasa Jepang buat kenalan">Belajar bahasa Jepang</button>
@@ -171,8 +171,13 @@
     <section class="view" id="view-settings">
       <div class="scroll settings">
         <div class="card">
-          <h3><svg><use href="#i-key"/></svg>Otak AI (Google Gemini)</h3>
-          <p class="muted">Butuh API key gratis dari <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Key hanya disimpan di HP ini.</p>
+          <h3><svg><use href="#i-key"/></svg>Otak AI</h3>
+          <div class="radio">
+            <label><input type="radio" name="provider" value="free"><span><b>AI gratis — tanpa API key</b> (langsung pakai, tidak perlu daftar)</span></label>
+            <label><input type="radio" name="provider" value="gemini"><span><b>Google Gemini</b> — pakai API key sendiri (opsional, bisa mendengar langsung bahasa apa pun)</span></label>
+          </div>
+          <div id="gemini-fields">
+          <p class="muted small">API key dari <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Key hanya disimpan di HP ini.</p>
           <label>API Key</label>
           <div class="field-row">
             <input id="set-key" type="password" placeholder="AIza…" autocomplete="off">
@@ -184,6 +189,7 @@
             <option value="gemini-2.5-flash"><option value="gemini-2.5-flash-lite"><option value="gemini-2.0-flash"><option value="gemini-flash-latest"><option value="gemini-flash-lite-latest">
           </datalist>
           <p class="muted small" style="margin-top:6px">Kalau kuota satu model habis, aplikasi otomatis pindah ke model lain yang masih ada kuota gratisnya.</p>
+          </div>
           <button class="pill primary full" id="set-test">Tes koneksi</button>
           <div class="muted small" id="set-test-result"></div>
         </div>
@@ -191,11 +197,11 @@
         <div class="card">
           <h3><svg><use href="#i-mic"/></svg>Cara mendengar</h3>
           <div class="radio">
-            <label><input type="radio" name="engine" value="ai"> <b>Universal AI</b> — deteksi bahasa apa pun otomatis (paling akurat, perlu internet)</label>
-            <label><input type="radio" name="engine" value="device"> <b>Pengenal suara HP</b> — teks muncul real-time (bahasa mengikuti pilihan / terakhir terdeteksi)</label>
+            <label><input type="radio" name="engine" value="ai"><span><b>Universal AI</b> — deteksi bahasa apa pun otomatis (khusus mode Gemini)</span></label>
+            <label><input type="radio" name="engine" value="device"><span><b>Pengenal suara HP</b> — teks muncul real-time (bahasa mengikuti pilihan / terakhir terdeteksi)</span></label>
           </div>
           <label class="switch"><input type="checkbox" id="set-handsfree"><span>Hands-free: otomatis mendengar lagi setelah AI selesai bicara</span></label>
-          <label class="switch"><input type="checkbox" id="set-search"><span>Cari info terkini di Google (lebih akurat untuk berita, tapi kuota gratisnya kecil)</span></label>
+          <label class="switch"><input type="checkbox" id="set-search"><span>Cari info terkini di Google (khusus Gemini; kuota gratisnya kecil)</span></label>
           <label>Sensitivitas jeda bicara: <b id="set-silence-val"></b></label>
           <input type="range" id="set-silence" min="500" max="2500" step="100">
         </div>

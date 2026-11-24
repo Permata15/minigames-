@@ -27,8 +27,9 @@ npm run apk            # hasil: android/app/build/outputs/apk/debug/app-debug.ap
 ```
 
 ## Pertama kali dipakai
-1. Ambil API key gratis di https://aistudio.google.com/apikey
-2. Buka tab **Setelan** → tempel API key → **Tes koneksi**.
-3. Kembali ke **Ngobrol** → ketuk bola → ngobrol!
+**Tanpa API key** — langsung buka aplikasi, ketuk bola, dan ngobrol.
+- Otak AI default: AI gratis tanpa key (Pollinations, model gpt-oss-20b). Pengguna anonim dibatasi; bila server minta antre, aplikasi menunggu otomatis.
+- Suara dikenali oleh pengenal suara HP, jawaban dibacakan oleh suara HP. Bahasa jawaban mengikuti bahasa yang kamu pakai.
+- Opsional: di **Setelan → Otak AI** pilih *Google Gemini* dan isi API key sendiri untuk mode Universal AI (mendengar langsung bahasa apa pun) dan Google Search.
 
 Versi web: `npm run serve` lalu buka http://localhost:8080
