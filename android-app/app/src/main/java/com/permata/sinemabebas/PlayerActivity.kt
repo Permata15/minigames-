@@ -89,7 +89,13 @@ class PlayerActivity : ComponentActivity() {
         root.addView(playerView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
         // Top bar overlay that appears together with the player controls.
-        overlay = FrameLayout(this).apply { setPadding(24, 16, 24, 16) }
+        overlay = FrameLayout(this).apply {
+            setPadding(32, 24, 32, 24)
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xAA000000.toInt(), 0x00000000),
+            )
+        }
         titleView = TextView(this).apply {
             setTextColor(Color.WHITE); textSize = 16f; maxLines = 1
             setShadowLayer(4f, 0f, 0f, Color.BLACK)
@@ -97,6 +103,11 @@ class PlayerActivity : ComponentActivity() {
         overlay.addView(titleView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START or Gravity.CENTER_VERTICAL).apply { marginEnd = 360 })
         val addSub = Button(this).apply {
             text = "+ Subtitle"; isAllCaps = false
+            setTextColor(Color.WHITE); textSize = 13f
+            minHeight = 0; minimumHeight = 0; setPadding(36, 14, 36, 14)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 60f; setColor(0x66000000); setStroke(2, 0x99FFFFFF.toInt())
+            }
             setOnClickListener {
                 pickSubtitle.launch(arrayOf("application/x-subrip", "text/vtt", "text/*", "application/octet-stream", "*/*"))
             }

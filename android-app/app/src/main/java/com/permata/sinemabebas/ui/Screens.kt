@@ -21,36 +21,6 @@ import com.permata.sinemabebas.data.Prefs
 import com.permata.sinemabebas.data.Title
 
 @Composable
-fun HomeScreen(vm: CatalogViewModel, history: List<Title>, onOpen: (Title) -> Unit) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    val cats = ArchiveRepository.categories
-    Column(Modifier.fillMaxSize()) {
-        Text(
-            "Sinema Bebas", color = Accent, fontSize = 26.sp, fontWeight = FontWeight.Black,
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-        )
-        ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp, containerColor = Bg) {
-            cats.forEachIndexed { i, c -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(c.label) }) }
-        }
-        val list = vm.category(cats[tab].key)
-        PosterGrid(
-            items = list.items, loading = list.loading, error = list.error,
-            onLoadMore = { vm.loadMore(list) }, onRetry = { vm.retry(list) }, onOpen = onOpen,
-            showHeader = history.isNotEmpty() && tab == 0,
-            header = {
-                Column {
-                    Text("Lanjutkan menonton", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(history, key = { "h" + it.id }) { PosterCard(it, { onOpen(it) }, Modifier.width(100.dp)) }
-                    }
-                    Text("Populer", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-                }
-            },
-        )
-    }
-}
-
-@Composable
 fun SearchScreen(vm: CatalogViewModel, onOpen: (Title) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(

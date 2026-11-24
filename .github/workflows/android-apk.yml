@@ -5,6 +5,9 @@ on:
     paths: ["android-app/**", ".github/workflows/android-apk.yml"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,8 +22,23 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Build release APK
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk SinemaBebas.apk
       - uses: actions/upload-artifact@v4
         with:
           name: SinemaBebas-apk
-          path: android-app/app/build/outputs/apk/release/*.apk
+          path: android-app/SinemaBebas.apk
+      # Public release = direct download link, no GitHub login or zip needed:
+      # https://github.com/<owner>/<repo>/releases/latest/download/SinemaBebas.apk
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.1.${{ github.run_number }}
+          name: Sinema Bebas v1.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: android-app/SinemaBebas.apk
+          body: |
+            📥 **Download:** klik `SinemaBebas.apk` di bawah, lalu buka file-nya di HP untuk instal.
+            Jika diminta, izinkan "Instal aplikasi dari sumber ini". Minimal Android 8.0.

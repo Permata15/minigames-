@@ -50,11 +50,12 @@ class MainActivity : ComponentActivity() {
     private fun App() {
         var tab by rememberSaveable { mutableIntStateOf(0) }
         var open by remember { mutableStateOf<Title?>(null) }
+        var category by rememberSaveable { mutableStateOf<String?>(null) }
 
         Scaffold(
             containerColor = Bg,
             bottomBar = {
-                if (open == null) NavigationBar(containerColor = Surface) {
+                if (open == null && category == null) NavigationBar(containerColor = Surface) {
                     listOf(
                         Triple("Beranda", Icons.Default.Home, 0),
                         Triple("Cari", Icons.Default.Search, 1),
@@ -76,8 +77,10 @@ class MainActivity : ComponentActivity() {
                         prefs.addHistory(detail.title)
                         play(items, index)
                     }
+                } else if (category != null) {
+                    CategoryScreen(vm, category!!, onBack = { category = null }) { open = it }
                 } else when (tab) {
-                    0 -> HomeScreen(vm, history) { open = it }
+                    0 -> HomeScreen(vm, history, onOpen = { open = it }, onSeeAll = { category = it })
                     1 -> SearchScreen(vm) { open = it }
                     2 -> SourcesScreen(prefs) { items, i -> play(items, i) }
                     else -> SettingsScreen(prefs)
