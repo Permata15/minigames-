@@ -1,8 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 import { TextToSpeech, QueueStrategy } from "@capacitor-community/text-to-speech";
 import { CapgoLLM } from "@capgo/capacitor-llm";
+// Pengunduh file besar buatan sendiri (lihat android/.../ModelDownloaderPlugin.java)
+const ModelDownloader = registerPlugin("ModelDownloader");
 
 /* ================= konfigurasi ================= */
 // KILAT: model tercepat, tanpa berpikir dulu → jawaban langsung keluar.
@@ -370,7 +372,12 @@ async function ensureOfflineListeners() {
   await CapgoLLM.addListener("textFromAi", (e) => { if (e.chatId === offline.chatId) offlineHandlers.text?.(e.text || ""); });
   await CapgoLLM.addListener("aiFinished", (e) => { if (e.chatId === offline.chatId) offlineHandlers.done?.(); });
   await CapgoLLM.addListener("generationError", (e) => { if (!e.chatId || e.chatId === offline.chatId) offlineHandlers.fail?.(e.error || "gagal"); });
-  await CapgoLLM.addListener("downloadProgress", (e) => showDownload(e.progress));
+  await ModelDownloader.addListener("progress", (e) => showDownload(e.bytes, e.total));
+  // Bersihkan sisa unduhan versi lama aplikasi (pengunduh lama tidak bisa melanjutkan).
+  if (!store.get("core9-legacy-clean", "") && !store.get("core9-offline-path", "")) {
+    await ModelDownloader.remove({ legacy: OFFLINE_MODEL.file }).catch(() => {});
+    store.set("core9-legacy-clean", "1");
+  }
 }
 
 // Coba muat otak offline yang sudah ada. Hasil: "ready" atau "need_download".
@@ -386,10 +393,22 @@ async function loadOffline() {
       return offlineReady("gemma");
     } catch { store.set("core9-offline-path", ""); }
   }
+  const info = await ModelDownloader.info({ filename: OFFLINE_MODEL.file }).catch(() => null);
+  if (info && info.exists) {
+    try {
+      await CapgoLLM.setModel({ path: info.path, modelType: "litertlm", maxTokens: 4096, temperature: 0.7, backend: "cpu" });
+      store.set("core9-offline-path", info.path);
+      return offlineReady("gemma");
+    } catch (e) {
+      offline.loadError = (e && (e.message || e.errorMessage)) || "";
+    }
+  }
   try {
     await CapgoLLM.setModel({ path: "Gemini Nano" });
     return offlineReady("nano");
   } catch { /* HP ini tidak punya Gemini Nano */ }
+  offline.partial = info ? info.partial : 0;
+  offline.freeBytes = info ? info.freeBytes : 0;
   offline.state = "need_download";
   updateOfflinePanel();
   return "need_download";
@@ -405,10 +424,11 @@ async function offlineReady(kind) {
 }
 async function downloadOffline() {
   offline.state = "downloading";
-  showDownload(0);
+  dl.startBytes = -1;
   updateOfflinePanel();
+  showDownload(offline.partial || 0, -1);
   try {
-    const { path } = await CapgoLLM.downloadModel({ url: OFFLINE_MODEL.url, filename: OFFLINE_MODEL.file });
+    const { path } = await ModelDownloader.download({ url: OFFLINE_MODEL.url, filename: OFFLINE_MODEL.file });
     store.set("core9-offline-path", path);
     offline.state = "loading";
     updateOfflinePanel();
@@ -418,6 +438,8 @@ async function downloadOffline() {
   } catch (e) {
     offline.state = "error";
     offline.error = (e && (e.message || e.errorMessage)) || "tidak diketahui";
+    const info = await ModelDownloader.info({ filename: OFFLINE_MODEL.file }).catch(() => null);
+    offline.partial = info ? info.partial : 0;
     updateOfflinePanel();
     return false;
   }
@@ -602,11 +624,31 @@ const KEY_HELP = {
   offline: "Tanpa API key dan tanpa biaya. AI berjalan langsung di HP Anda, jadi tetap bisa dipakai tanpa internet.",
 };
 let formBrain = brain;
-function showDownload(progress) {
-  const pct = Math.max(0, Math.min(100, Number(progress) || 0));
+const dl = { startBytes: -1, startTime: 0 };
+const gbText = (b) => (b / 1073741824).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function showDownload(bytes, total) {
+  bytes = Number(bytes) || 0;
+  total = Number(total) || -1;
+  const now = Date.now();
+  if (dl.startBytes < 0) { dl.startBytes = bytes; dl.startTime = now; }
+  const secs = (now - dl.startTime) / 1000;
+  const speed = secs > 2 ? (bytes - dl.startBytes) / secs : 0;           // byte per detik
   $("offlineMeter").hidden = false;
-  $("offlineBar").style.width = pct + "%";
-  if (offline.state === "downloading") $("offlineSub").textContent = `Mengunduh… ${pct.toFixed(0)}%. Biarkan aplikasi tetap terbuka.`;
+  if (total > 0) {
+    const pct = Math.min(100, (bytes / total) * 100);
+    $("offlineBar").style.width = pct.toFixed(1) + "%";
+    let line = `${gbText(bytes)} GB dari ${gbText(total)} GB · ${pct.toFixed(0)}%`;
+    if (speed > 0) {
+      line += ` · ${(speed / 1048576).toFixed(1)} MB/s`;
+      const left = (total - bytes) / speed;
+      line += left > 90 ? ` · sisa ±${Math.ceil(left / 60)} menit` : ` · sisa ±${Math.ceil(left)} detik`;
+    }
+    if (offline.state === "downloading") $("offlineSub").textContent = line;
+  } else {
+    $("offlineBar").style.width = "3%";
+    if (offline.state === "downloading")
+      $("offlineSub").textContent = bytes > 0 ? `${gbText(bytes)} GB terunduh…` : "Menghubungi server Google…";
+  }
 }
 function updateOfflinePanel() {
   const t = $("offlineText"), sub = $("offlineSub"), ok = $("settingsOk");
@@ -625,17 +667,22 @@ function updateOfflinePanel() {
       ok.textContent = "TUNGGU";
       break;
     case "downloading":
-      t.innerHTML = "📥 Mengunduh otak AI <b>Gemma 4</b> dari Google (sekali saja).";
+      t.innerHTML = "📥 Mengunduh otak AI <b>Gemma 4</b> dari Google (sekali saja). Layar dibuat tetap menyala; jangan tutup aplikasi.";
       ok.textContent = "MENGUNDUH";
       break;
     case "need_download":
       t.innerHTML = "HP ini belum punya AI bawaan. Unduh otak AI <b>Gemma 4</b> sekali saja (ukuran besar, beberapa GB), setelah itu bisa dipakai tanpa internet.";
-      sub.textContent = "Pakai Wi-Fi. Butuh ruang kosong ±4 GB dan RAM 6 GB atau lebih.";
-      ok.textContent = "UNDUH";
+      sub.textContent = (offline.partial > 0 ? `Sudah terunduh ${gbText(offline.partial)} GB, akan dilanjutkan. ` : "")
+        + "Pakai Wi-Fi. Butuh ruang kosong ±4 GB dan RAM 6 GB atau lebih."
+        + (offline.freeBytes ? ` Ruang kosong HP Anda: ${gbText(offline.freeBytes)} GB.` : "")
+        + (offline.loadError ? ` (Info: ${offline.loadError})` : "");
+      ok.textContent = offline.partial > 0 ? "LANJUTKAN" : "UNDUH";
       break;
     case "error":
       t.innerHTML = "⚠️ Gagal menyiapkan otak offline.";
-      sub.textContent = "Detail: " + offline.error + ". Pastikan Wi-Fi stabil dan ruang penyimpanan cukup, lalu tekan COBA LAGI.";
+      sub.textContent = "Detail: " + offline.error + "."
+        + (offline.partial > 0 ? ` Sudah terunduh ${gbText(offline.partial)} GB dan akan dilanjutkan.` : "")
+        + " Pastikan Wi-Fi stabil, lalu tekan COBA LAGI.";
       ok.textContent = "COBA LAGI";
       break;
     default:
