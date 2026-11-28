@@ -380,6 +380,33 @@ async function ensureOfflineListeners() {
   }
 }
 
+function errText(e) {
+  if (!e) return "tidak diketahui";
+  const parts = [e.message || e.errorMessage, e.code, e.data && (e.data.message || JSON.stringify(e.data))]
+    .filter((x) => x && typeof x === "string");
+  return [...new Set(parts)].join(" · ") || String(e);
+}
+// Muat file Gemma dengan beberapa setelan, dari yang paling ringan untuk RAM.
+async function loadGemma(path) {
+  const tries = [
+    { backend: "cpu", maxTokens: 2048 },
+    { backend: "gpu", maxTokens: 2048 },
+    { backend: "cpu", maxTokens: 1024 },
+  ];
+  const errors = [];
+  for (const t of tries) {
+    try {
+      await CapgoLLM.setModel({ path, modelType: "litertlm", temperature: 0.7, ...t });
+      return;
+    } catch (e) {
+      errors.push(`${t.backend.toUpperCase()}: ${errText(e)}`);
+    }
+  }
+  const info = await ModelDownloader.info({ filename: OFFLINE_MODEL.file }).catch(() => null);
+  const size = info && info.size ? ` · ukuran file ${gbText(info.size)} GB` : "";
+  throw new Error(errors.join(" | ") + size);
+}
+
 // Coba muat otak offline yang sudah ada. Hasil: "ready" atau "need_download".
 async function loadOffline() {
   if (!Capacitor.isNativePlatform()) throw new Error("Mode offline hanya bisa dipakai di aplikasi Android");
@@ -389,18 +416,18 @@ async function loadOffline() {
   const path = store.get("core9-offline-path", "");
   if (path) {
     try {
-      await CapgoLLM.setModel({ path, modelType: "litertlm", maxTokens: 4096, temperature: 0.7, backend: "cpu" });
+      await loadGemma(path);
       return offlineReady("gemma");
-    } catch { store.set("core9-offline-path", ""); }
+    } catch (e) { offline.loadError = e.message; }
   }
   const info = await ModelDownloader.info({ filename: OFFLINE_MODEL.file }).catch(() => null);
   if (info && info.exists) {
     try {
-      await CapgoLLM.setModel({ path: info.path, modelType: "litertlm", maxTokens: 4096, temperature: 0.7, backend: "cpu" });
+      await loadGemma(info.path);
       store.set("core9-offline-path", info.path);
       return offlineReady("gemma");
     } catch (e) {
-      offline.loadError = (e && (e.message || e.errorMessage)) || "";
+      offline.loadError = e.message;
     }
   }
   try {
@@ -409,6 +436,14 @@ async function loadOffline() {
   } catch { /* HP ini tidak punya Gemini Nano */ }
   offline.partial = info ? info.partial : 0;
   offline.freeBytes = info ? info.freeBytes : 0;
+  offline.fileReady = !!(info && info.exists);
+  if (offline.fileReady && offline.loadError) {
+    // File sudah lengkap, tapi gagal dijalankan: tampilkan alasannya.
+    offline.state = "error";
+    offline.error = offline.loadError;
+    updateOfflinePanel();
+    return "need_download";
+  }
   offline.state = "need_download";
   updateOfflinePanel();
   return "need_download";
@@ -432,14 +467,15 @@ async function downloadOffline() {
     store.set("core9-offline-path", path);
     offline.state = "loading";
     updateOfflinePanel();
-    await CapgoLLM.setModel({ path, modelType: "litertlm", maxTokens: 4096, temperature: 0.7, backend: "cpu" });
+    await loadGemma(path);
     await offlineReady("gemma");
     return true;
   } catch (e) {
     offline.state = "error";
-    offline.error = (e && (e.message || e.errorMessage)) || "tidak diketahui";
+    offline.error = errText(e);
     const info = await ModelDownloader.info({ filename: OFFLINE_MODEL.file }).catch(() => null);
     offline.partial = info ? info.partial : 0;
+    offline.fileReady = !!(info && info.exists);
     updateOfflinePanel();
     return false;
   }
@@ -681,8 +717,10 @@ function updateOfflinePanel() {
     case "error":
       t.innerHTML = "⚠️ Gagal menyiapkan otak offline.";
       sub.textContent = "Detail: " + offline.error + "."
-        + (offline.partial > 0 ? ` Sudah terunduh ${gbText(offline.partial)} GB dan akan dilanjutkan.` : "")
-        + " Pastikan Wi-Fi stabil, lalu tekan COBA LAGI.";
+        + (offline.fileReady
+          ? " File AI sudah terunduh lengkap; masalahnya terjadi saat AI dijalankan di HP. Tutup aplikasi lain agar RAM lega, lalu tekan COBA LAGI."
+          : (offline.partial > 0 ? ` Sudah terunduh ${gbText(offline.partial)} GB dan akan dilanjutkan.` : "")
+            + " Pastikan Wi-Fi stabil, lalu tekan COBA LAGI.");
       ok.textContent = "COBA LAGI";
       break;
     default:

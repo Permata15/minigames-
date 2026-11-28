@@ -1,0 +1,19 @@
+diff --git a/node_modules/@capgo/capacitor-llm/android/src/main/java/ee/forgr/capgo_llm/LLM.java b/node_modules/@capgo/capacitor-llm/android/src/main/java/ee/forgr/capgo_llm/LLM.java
+index fbcb80e..4a7369c 100644
+--- a/node_modules/@capgo/capacitor-llm/android/src/main/java/ee/forgr/capgo_llm/LLM.java
++++ b/node_modules/@capgo/capacitor-llm/android/src/main/java/ee/forgr/capgo_llm/LLM.java
+@@ -244,11 +244,12 @@ public class LLM {
+ 
+     private Engine initializeLiteRtModel(String actualPath, ModelLoadRequest request) {
+         Backend primaryBackend = resolveLiteRtBackend(request.backend);
++        // CORE-9: teks saja (tanpa encoder gambar/suara) agar hemat RAM di HP.
+         EngineConfig config = new EngineConfig(
+             actualPath,
+             primaryBackend,
+-            primaryBackend,
+-            primaryBackend,
++            null,
++            null,
+             request.maxTokens,
+             context.getCacheDir().getAbsolutePath()
+         );
