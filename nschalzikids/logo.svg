@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="432" height="432">
+  <rect width="108" height="108" rx="24" fill="#FFE3EE"/>
+  <!-- bintang kecil -->
+  <path fill="#FFC93C" d="M84,24 l1.8,4 4.2,0.4 -3.2,2.8 1,4.2 -3.8,-2.2 -3.8,2.2 1,-4.2 -3.2,-2.8 4.2,-0.4z"/>
+  <path fill="#7FD3F7" d="M22,30 l1.2,2.6 2.8,0.3 -2.1,1.9 0.6,2.8 -2.5,-1.5 -2.5,1.5 0.6,-2.8 -2.1,-1.9 2.8,-0.3z"/>
+  <!-- kerudung: bahu -->
+  <path fill="#E8467C" d="M26,88 C26,70 38,63 54,63 C70,63 82,70 82,88 Z"/>
+  <!-- kerudung: kepala -->
+  <path fill="#E8467C" d="M31,50 a23,24 0 1,0 46,0 a23,24 0 1,0 -46,0"/>
+  <!-- lipatan dalam kerudung -->
+  <path fill="#FF8FB1" d="M37,53 a17,18 0 1,0 34,0 a17,18 0 1,0 -34,0"/>
+  <!-- wajah -->
+  <path fill="#FFDDB8" d="M40,54 a14,15 0 1,0 28,0 a14,15 0 1,0 -28,0"/>
+  <!-- mata -->
+  <path fill="#3B2A3F" d="M46.5,53 a2.4,2.8 0 1,0 4.8,0 a2.4,2.8 0 1,0 -4.8,0"/>
+  <path fill="#3B2A3F" d="M56.7,53 a2.4,2.8 0 1,0 4.8,0 a2.4,2.8 0 1,0 -4.8,0"/>
+  <path fill="#FFFFFF" d="M48.6,52 a0.9,0.9 0 1,0 1.8,0 a0.9,0.9 0 1,0 -1.8,0"/>
+  <path fill="#FFFFFF" d="M58.8,52 a0.9,0.9 0 1,0 1.8,0 a0.9,0.9 0 1,0 -1.8,0"/>
+  <!-- pipi -->
+  <path fill="#FF9AA8" d="M42.5,59 a2.6,1.8 0 1,0 5.2,0 a2.6,1.8 0 1,0 -5.2,0"/>
+  <path fill="#FF9AA8" d="M60.3,59 a2.6,1.8 0 1,0 5.2,0 a2.6,1.8 0 1,0 -5.2,0"/>
+  <!-- senyum -->
+  <path fill="none" stroke="#C2185B" stroke-width="1.8" stroke-linecap="round" d="M49.5,61 Q54,65 58.5,61"/>
+  <!-- bros bunga -->
+  <path fill="#FFC93C" d="M50.5,74 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"/>
+  <path fill="#FFFFFF" d="M52.6,74 a1.4,1.4 0 1,0 2.8,0 a1.4,1.4 0 1,0 -2.8,0"/>
+</svg>
