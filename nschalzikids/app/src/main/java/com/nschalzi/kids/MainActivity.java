@@ -222,7 +222,7 @@ public class MainActivity extends Activity {
             web.setVisibility(View.GONE);
             homeBtn.setVisibility(View.GONE);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-            setImmersive(true);
+            setFullscreenBars(true);
         }
 
         @Override
@@ -241,10 +241,10 @@ public class MainActivity extends Activity {
         web.setVisibility(View.VISIBLE);
         homeBtn.setVisibility(View.VISIBLE);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-        setImmersive(false);
+        setFullscreenBars(false);
     }
 
-    private void setImmersive(boolean on) {
+    private void setFullscreenBars(boolean on) {
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController c = getWindow().getInsetsController();
             if (c == null) return;
