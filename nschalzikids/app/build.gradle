@@ -10,8 +10,18 @@ android {
         applicationId 'com.nschalzi.kids'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '2.0'
+        versionCode 3
+        versionName '2.1'
+    }
+
+    signingConfigs {
+        nsk {
+            // Kunci tetap supaya versi baru bisa menimpa versi lama di HP.
+            storeFile file('../keystore/nschalzikids.jks')
+            storePassword 'nschalzikids'
+            keyAlias 'nschalzikids'
+            keyPassword 'nschalzikids'
+        }
     }
 
     buildTypes {
@@ -19,8 +29,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Ditandatangani dengan kunci debug agar APK langsung bisa dipasang.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.nsk
         }
     }
 

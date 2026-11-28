@@ -12,12 +12,13 @@ Aplikasi Android untuk anak menonton video YouTube **tanpa iklan**, dengan ikon 
 - APK sangat ringan (tanpa library tambahan, diperkecil dengan R8).
 
 ## Cara mendapatkan APK
-1. Buka tab **Actions** di repositori GitHub → workflow **Build Nschalzikids APK**.
-2. Pilih run terbaru yang berhasil (centang hijau) → unduh artefak **Nschalzikids-apk**.
-3. Ekstrak zip-nya, salin `Nschalzikids.apk` ke HP, lalu pasang (izinkan "Instal dari sumber tidak dikenal").
+Unduh langsung (tanpa login, tanpa zip):
+https://github.com/Permata15/minigames-/releases/download/nschalzikids/Nschalzikids.apk
 
-Atau bangun sendiri dengan Android Studio / `./gradlew assembleRelease` (butuh Android SDK).
+Pasang di HP Android 8.0 ke atas (izinkan "Instal dari sumber tidak dikenal").
+Jika versi lama pernah terpasang dan muncul "Aplikasi tidak terpasang", hapus dulu versi lama lalu pasang lagi.
 
 ## Catatan
 - YouTube sering mengubah situsnya, jadi sesekali iklan bisa lolos sebelum pemblokir diperbarui.
 - Aplikasi ini untuk pemakaian pribadi; tidak bisa diterbitkan di Play Store karena memblokir iklan YouTube.
+- APK ditandatangani dengan kunci di `keystore/` agar pembaruan bisa menimpa versi lama. Kunci ini publik, jadi hanya cocok untuk pemakaian pribadi.

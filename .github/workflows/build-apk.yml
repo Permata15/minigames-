@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -29,8 +29,72 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           cp app/build/outputs/apk/release/app-release.apk Nschalzikids.apk
+          ls -la Nschalzikids.apk
+
+      - name: Verify APK
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/apksigner verify --print-certs Nschalzikids.apk
+          $BT/aapt2 dump badging Nschalzikids.apk | head -5
 
       - uses: actions/upload-artifact@v4
         with:
           name: Nschalzikids-apk
           path: nschalzikids/Nschalzikids.apk
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Nschalzikids-apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and launch on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: |
+            adb install -r Nschalzikids.apk
+            adb logcat -c
+            adb shell am start -W -n com.nschalzi.kids/.MainActivity
+            sleep 15
+            adb shell pidof com.nschalzi.kids
+            adb exec-out screencap -p > screen.png
+            adb logcat -d | grep -E "FATAL|AndroidRuntime|nschalzi" | tail -40 || true
+            ! adb logcat -d | grep -q "FATAL EXCEPTION"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-screenshot
+          path: screen.png
+
+  release:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Nschalzikids-apk
+
+      - name: Publish direct download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete nschalzikids --yes --cleanup-tag || true
+          gh release create nschalzikids Nschalzikids.apk \
+            --target "${{ github.sha }}" \
+            --title "Nschalzikids (terbaru)" \
+            --notes "Unduh Nschalzikids.apk di bawah ini lalu pasang di HP Android 8.0 ke atas."
